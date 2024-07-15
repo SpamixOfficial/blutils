@@ -7,4 +7,4 @@ edition = "2021"
 
 [dependencies]
 taap = "0.1.4"
-clap = "4.5.4"
+clap = { version = "4.5.4", features = ["cargo", "derive"] }
