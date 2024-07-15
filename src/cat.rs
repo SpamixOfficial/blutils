@@ -1,3 +1,4 @@
+use std::env::args;
 use std::path::{Path, PathBuf};
 use std::{
     env::{args_os, Args},
@@ -57,21 +58,26 @@ struct Cli {
 }
 
 pub fn main() {
-    let cli = Cli::parse();
+    let cli: Cli;
+    // skip first arg if it happens to be "blutils"
+    if args().collect::<Vec<String>>()[0].split("/").last().unwrap() == "blutils" {
+        cli = Cli::parse_from(args().skip(1));
+    } else {
+        cli = Cli::parse();
+    };
+
     for val in &cli.files {
         let path = Path::new(val);
-        dbg!(&path);
         let mut contents = fs::read_to_string(path)
             .expect("Uh oh! Reading the file went VERY wrong. Report this bug!").split_inclusive('\n').map(|f| f.to_string()).collect::<Vec<String>>();
         if cli.number && !cli.number_nonblank {
-            let mut i = 0;
-            let padding = 
-            for line in contents.clone() {
-                contents[i] = format!(" {} | {}", i, line);
-                i += 1;
+            let padding = contents.len().to_string().len(); 
+            for (i, line) in contents.clone().iter().enumerate() {
+                contents[i] = format!(" {:<numPadding$} | {line}", i, numPadding = padding);
             };
             
         } else if cli.number_nonblank {
+            
         };
         println!("{}", contents.iter().map(|f| f.to_owned()).collect::<String>())
     }
