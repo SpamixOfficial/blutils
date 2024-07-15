@@ -9,9 +9,10 @@ fn main() {
     let arguments: Vec<String> = args().collect();
     dbg!(&arguments);
     let mut command = arguments[0].split("/").last().unwrap();
+    dbg!(&command);
     if arguments.len() < 2 && command == "blutils" {
         help();
-    } else if arguments[1] == "--list" || arguments[1] == "-l" && command == "blutils" {
+    } else if arguments.len() >= 2 && command == "blutils" && (arguments[1] == "--list" || arguments[1] == "-l")  {
         list();
     } else if command == "blutils" {
         command = arguments[1].as_str();
