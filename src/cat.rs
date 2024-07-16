@@ -68,8 +68,13 @@ pub fn main() {
     } else {
         cli = Cli::parse();
     };
-
-    for val in &cli.files {
+    let files: Vec<String>;
+    if cli.files.is_empty() {
+        files = vec![String::from("-")]
+    } else {
+        files = cli.files.clone()
+    };
+    for val in &files {
         let mut contents;
         if val != "-" {
             let path = Path::new(val);
