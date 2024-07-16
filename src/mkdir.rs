@@ -1,9 +1,5 @@
 use std::{
-    env::args,
-    fs::{create_dir, create_dir_all},
-    path::{Path, PathBuf},
-    process::exit,
-    string,
+    env::args, fmt::Octal, fs::{create_dir, create_dir_all, set_permissions, Permissions}, os::unix::fs::PermissionsExt, path::{Path, PathBuf}, process::exit, string
 };
 
 use clap::Parser;
@@ -18,7 +14,7 @@ struct Cli {
     // Done
     #[clap(value_parser, num_args = 1.., value_delimiter = ' ', required = true)]
     directories: Vec<PathBuf>,
-    // TODO
+    // Done
     #[arg(
         short = 'm',
         long = "mode",
@@ -66,15 +62,41 @@ pub fn main() {
     } else {
         cli = Cli::parse();
     };
+    // Loop over each directory
     for p in &cli.directories {
-        create(&cli, p)
+        create(&cli, p);
+        mode(&cli, p);
     }
 }
 
+// Simple logging function - got sick of inline if statements ¯\_(ツ)_/¯
 fn log(verbose: bool, message: String) {
     if verbose {
         println!("{}", message)
     }
+}
+
+fn mode(cli: &Cli, path: &PathBuf) {
+    if let Some(modestr) = cli.clone().mode {
+        let mode = match u32::from_str_radix(modestr.as_str(), 8) {
+            Ok(val) => val,
+            Err(e) => {eprintln!("mkdir: Error: {}", e.to_string()); exit(1)}
+        };
+
+        match set_permissions(path, Permissions::from_mode(mode)) {
+            Err(e) => {
+                let mut error_code = 1;
+                if let Some(os_error) = e.raw_os_error() {
+                    eprintln!("mkdir: Error: {}", e.to_string());
+                    error_code = os_error;
+                } else {
+                    eprintln!("mkdir: Error: {}", e.to_string())
+                };
+                exit(error_code);
+            }
+            _ => (),
+        };
+    };
 }
 
 fn create(cli: &Cli, path: &PathBuf) {
@@ -85,10 +107,10 @@ fn create(cli: &Cli, path: &PathBuf) {
             Err(e) => {
                 let mut error_code = 1;
                 if let Some(os_error) = e.raw_os_error() {
-                    eprintln!("cat: Error: {}", e.to_string());
+                    eprintln!("mkdir: Error: {}", e.to_string());
                     error_code = os_error;
                 } else {
-                    eprintln!("cat: Error: {}", e.to_string())
+                    eprintln!("mkdir: Error: {}", e.to_string())
                 };
                 exit(error_code);
             }
@@ -99,10 +121,10 @@ fn create(cli: &Cli, path: &PathBuf) {
             Err(e) => {
                 let mut error_code = 1;
                 if let Some(os_error) = e.raw_os_error() {
-                    eprintln!("cat: Error: {}", e.to_string());
+                    eprintln!("mkdir: Error: {}", e.to_string());
                     error_code = os_error;
                 } else {
-                    eprintln!("cat: Error: {}", e.to_string())
+                    eprintln!("mkdir: Error: {}", e.to_string())
                 };
                 exit(error_code);
             }
