@@ -94,9 +94,8 @@ pub fn main() {
         let mut contents = fs::read_to_string(path)
             .expect("Uh oh! Reading the file went VERY wrong. Report this bug!");
 
+        contents = tabs(&cli, contents);
         contents = numbering(&cli, contents);
-
-        if cli.show_tabs && !cli.show_tabs_nonprinting {};
 
         println!("{}", contents)
     }
@@ -104,6 +103,7 @@ pub fn main() {
 }
 
 fn numbering(cli: &Cli, contents: String) -> String {
+    // Create a new Vector of strings (lines) from the content lines
     let mut content_lines = contents
         .clone()
         .split_inclusive('\n')
@@ -138,8 +138,62 @@ fn numbering(cli: &Cli, contents: String) -> String {
             }
         }
     }
+    // Turn lines to string and return
     content_lines
         .iter()
         .map(|f| f.to_owned())
         .collect::<String>()
+}
+
+fn tabs(cli: &Cli, contents: String) -> String {
+    let mut result = contents;
+    if cli.show_tabs && cli.show_tabs_nonprinting != true {
+        result = result.replace("\t", "^I");
+        dbg!(&result.replace("\t", "^I"));
+    } else if cli.show_tabs_nonprinting {
+        result = result.replace("\t", "^I");
+        result = nonprinting(&cli.clone(), result);
+    };
+    return result;
+}
+
+fn nonprinting(cli: &Cli, contents: String) -> String {
+    // I figured the easiest way here would be to basically just build a new string from chars
+    let mut result = String::new(); 
+    for ch in contents.chars() {
+        // Make sure it isnt a control code
+        if ch as u8 >= 32 {
+            if 127 > ch as u8 {
+                // Printable char, just push it to result string
+                result.push(ch);
+            } else if ch as u8 == 127 {
+                // Del char
+                result.push_str("^?");
+            } else {
+                // Meta characters
+                result.push_str("M-");
+                if 128 + 32 <= ch as u8 {
+                    if 128 + 127 > ch as u8 {
+                        // Meta character is out of the ascii range, we remove 128 to make it
+                        // printable
+                        result.push((ch as u8 - 128) as char)
+                    } else {
+                        result.push_str("^?");
+                    }
+                } else {
+                    result.push('^');
+                    result.push((ch as u8 - 128 + 64) as char);
+                }
+            }
+        } else if ch == '\t' && !cli.show_tabs {
+            result.push(ch)
+        } else if ch == '\n' {
+            result.push(ch)
+        } else {
+            // If it is a control code we push ^, and add 64 to the char to its printable
+            result.push('^');
+            result.push((ch as u8 + 64) as char);
+        }
+    }
+    result
 }

@@ -13,8 +13,9 @@ Cargo.lock
 # MSVC Windows builds of rustc generate these, which store debugging information
 *.pdb
 
-# Link testing directory
-test_links
+# Testing files and directories
+test_links/
+test
 
 # Build directory
 src/metadata
