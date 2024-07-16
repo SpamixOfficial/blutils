@@ -5,6 +5,7 @@ const BUILD: &str = include_str!("metadata/build");
 use std::{env::args, process::exit};
 mod cat;
 mod ls;
+mod mkdir;
 fn main() {
     let arguments: Vec<String> = args().collect();
     let mut command = arguments[0].split("/").last().unwrap();
@@ -18,6 +19,7 @@ fn main() {
     match command {
         "ls" => ls::main(),
         "cat" => cat::main(),
+        "mkdir" => mkdir::main(),
         _ => help(),
     }
 }
