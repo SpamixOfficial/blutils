@@ -40,18 +40,6 @@ struct Cli {
         help = "print a message for each created directory"
     )]
     verbose: bool,
-    // TODO
-    #[arg(
-        short = 'Z',
-        help = "set SELinux security context of each created directory to the default type"
-    )]
-    default_selinux: bool,
-    // TODO
-    #[arg(
-        long = "context",
-        help = "like -Z, or if CTX is specified then set the SELinux or SMACK security context to CTX"
-    )]
-    context: Option<String>,
 }
 
 pub fn main() {
