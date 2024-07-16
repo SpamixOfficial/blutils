@@ -123,7 +123,6 @@ fn ends(cli: &Cli, contents: String) -> String {
             .split('\n')
             .map(|f| format!("{f}$\n"))
             .collect::<String>();
-        result = nonprinting(&cli.clone(), result);
     }
     result
 }
