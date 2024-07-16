@@ -1,11 +1,12 @@
 use std::{
     env::args,
-
     fs::{create_dir, create_dir_all, set_permissions, Permissions},
     os::unix::fs::PermissionsExt,
     path::PathBuf,
     process::exit,
 };
+
+use crate::utils::log;
 
 use clap::Parser;
 
@@ -16,24 +17,23 @@ use clap::Parser;
     author = "Alexander Hübner"
 )]
 struct Cli {
-    // Done
     #[clap(value_parser, num_args = 1.., value_delimiter = ' ', required = true)]
     directories: Vec<PathBuf>,
-    // Done
+
     #[arg(
         short = 'm',
         long = "mode",
         help = "set file mode (as in chmod), not a=rwx - umask"
     )]
     mode: Option<String>,
-    // Done
+
     #[arg(
         short = 'p',
         long = "parents",
         help = "no error if existing, make parent directories as needed,"
     )]
     parents: bool,
-    // Done
+
     #[arg(
         short = 'v',
         long = "verbose",
@@ -59,13 +59,6 @@ pub fn main() {
     for p in &cli.directories {
         create(&cli, p);
         mode(&cli, p);
-    }
-}
-
-// Simple logging function - got sick of inline if statements ¯\_(ツ)_/¯
-fn log(verbose: bool, message: String) {
-    if verbose {
-        println!("[log] {}", message)
     }
 }
 

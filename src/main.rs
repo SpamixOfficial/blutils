@@ -3,9 +3,14 @@ const VERSION: &str = include_str!("metadata/version");
 const BUILD: &str = include_str!("metadata/build");
 
 use std::{env::args, process::exit};
+// All modules
 mod cat;
 mod ls;
 mod mkdir;
+mod rmdir;
+mod utils;
+// End of modules
+
 fn main() {
     let arguments: Vec<String> = args().collect();
     let mut command = arguments[0].split("/").last().unwrap();
@@ -20,6 +25,7 @@ fn main() {
         "ls" => ls::main(),
         "cat" => cat::main(),
         "mkdir" => mkdir::main(),
+        "rmdir" => rmdir::main(),
         _ => help(),
     }
 }

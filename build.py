@@ -10,7 +10,7 @@ try:
 except:
     pass
 # Remove info files and main.rs from modules list
-ignore_files = ['main.rs', 'metadata']
+ignore_files = ['main.rs', 'metadata', 'utils.rs']
 
 for item in ignore_files:
     try:
