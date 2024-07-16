@@ -38,3 +38,4 @@ with open('src/metadata/build', 'w') as f:
     f.write(f"{datetime.datetime.now()} {time.tzname[0]}")
     f.close()
 os.system("cargo build --release")
+print("Executable is built!")
