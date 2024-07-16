@@ -1,4 +1,4 @@
-use std::{env::args, process::exit, string};
+use std::{env::args, fs::create_dir, process::exit, string};
 
 use clap::Parser;
 
@@ -54,5 +54,4 @@ pub fn main() {
     } else {
         cli = Cli::parse();
     };
-
 }
