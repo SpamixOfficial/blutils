@@ -12,6 +12,31 @@ For the moment there's no way to install or build this set of utils. There is a 
 
 When I feel that it is in an acceptable state I'll provide an installation method!
 
+But, if you want to try it out anyways, read this!
+
+## How to actually test out blutils
+The most solid way I can recommend to try out blutils is by using the command "cargo run".
+
+Here's the commands you'll need to try it out:
+```
+# We need to build the metadata files first
+python build.py 
+
+# Now we can run the "cargo run" commands! Here's a list down below for trying them out
+
+# help page
+cargo run ( or ) cargo run -- --help
+# cat
+cargo run -- cat 
+# mkdir
+cargo run -- mkdir
+# rmdir (not finished)
+cargo run -- rmdir
+```
+*NOTE: All of these commands do what they are supposed to do. This can lead to ***destructive*** actions.*
+
+**TREAT THESE COMMANDS AS YOU WOULD TREAT YOUR NORMAL COMMANDS!**
+
 # Tracker
 
 [Click here for the tracker file](/TRACKER.md)
