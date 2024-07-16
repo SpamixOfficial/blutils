@@ -1,5 +1,10 @@
 use std::{
-    env::args, fmt::Octal, fs::{create_dir, create_dir_all, set_permissions, Permissions}, os::unix::fs::PermissionsExt, path::{Path, PathBuf}, process::exit, string
+    env::args,
+
+    fs::{create_dir, create_dir_all, set_permissions, Permissions},
+    os::unix::fs::PermissionsExt,
+    path::PathBuf,
+    process::exit,
 };
 
 use clap::Parser;
@@ -78,9 +83,16 @@ fn log(verbose: bool, message: String) {
 
 fn mode(cli: &Cli, path: &PathBuf) {
     if let Some(modestr) = cli.clone().mode {
+        log(
+            cli.verbose,
+            format!("Setting mode {} for {}", modestr, path.display()),
+        );
         let mode = match u32::from_str_radix(modestr.as_str(), 8) {
             Ok(val) => val,
-            Err(e) => {eprintln!("mkdir: Error: {}", e.to_string()); exit(1)}
+            Err(e) => {
+                eprintln!("mkdir: Error: {}", e.to_string());
+                exit(1)
+            }
         };
 
         match set_permissions(path, Permissions::from_mode(mode)) {
@@ -96,13 +108,20 @@ fn mode(cli: &Cli, path: &PathBuf) {
             }
             _ => (),
         };
+        log(cli.verbose, String::from("Modeset was successful!"));
     };
 }
 
 fn create(cli: &Cli, path: &PathBuf) {
-    log(cli.verbose, format!("Trying to create directory {}", path.display()));  
+    log(
+        cli.verbose,
+        format!("Trying to create directory {}", path.display()),
+    );
     if cli.parents {
-        log(cli.verbose, String::from("-p flag used, creating parents..."));
+        log(
+            cli.verbose,
+            String::from("-p flag used, creating parents..."),
+        );
         match create_dir_all(path) {
             Err(e) => {
                 let mut error_code = 1;
@@ -117,7 +136,7 @@ fn create(cli: &Cli, path: &PathBuf) {
             _ => (),
         }
     } else {
-        match create_dir_all(path) {
+        match create_dir(path) {
             Err(e) => {
                 let mut error_code = 1;
                 if let Some(os_error) = e.raw_os_error() {
@@ -131,5 +150,8 @@ fn create(cli: &Cli, path: &PathBuf) {
             _ => (),
         }
     };
-    log(cli.verbose, String::from("Directory was created successfully!"));
+    log(
+        cli.verbose,
+        String::from("Directory was created successfully!"),
+    );
 }
