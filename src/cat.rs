@@ -1,7 +1,8 @@
 use std::env::args;
+use std::fs;
+use std::io::{stdin, Read};
 use std::path::Path;
 use std::process::exit;
-use std::fs;
 
 use clap::Parser;
 
@@ -69,21 +70,41 @@ pub fn main() {
     };
 
     for val in &cli.files {
-        let path = Path::new(val);
-        // TODO: Get actual error handling working!
-        let mut contents = match fs::read_to_string(path) {
-            Ok(val) => val,
-            Err(e) => {
-                let mut error_code = 1;
-                if let Some(os_error) = e.raw_os_error() {
-                    eprintln!("cat: Error: {}", e.to_string());
-                    error_code = os_error;
-                } else {
-                    eprintln!("cat: Error: {}", e.to_string())
-                };
-                exit(error_code);
+        let mut contents;
+        if val != "-" {
+            let path = Path::new(val);
+            contents = match fs::read_to_string(path) {
+                Ok(val) => val,
+                Err(e) => {
+                    let mut error_code = 1;
+                    if let Some(os_error) = e.raw_os_error() {
+                        eprintln!("cat: Error: {}", e.to_string());
+                        error_code = os_error;
+                    } else {
+                        eprintln!("cat: Error: {}", e.to_string())
+                    };
+                    exit(error_code);
+                }
+            };
+        } else {
+            let mut stdin = stdin();
+            let mut buf: Vec<u8> = vec![];
+            match stdin.read_to_end(&mut buf) {
+                Err(e) => {
+                    let mut error_code = 1;
+                    if let Some(os_error) = e.raw_os_error() {
+                        eprintln!("cat: Error: {}", e.to_string());
+                        error_code = os_error;
+                    } else {
+                        eprintln!("cat: Error: {}", e.to_string())
+                    };
+                    exit(error_code);
+                },
+                _ => ()
             }
+            contents = String::from_utf8(buf).expect("This is a bug that shouldnt be possible. Please report this now.");
         };
+
         contents = nonprinting(&cli, contents);
         contents = squeeze_blank(&cli, contents);
         contents = ends(&cli, contents);
@@ -92,7 +113,6 @@ pub fn main() {
 
         println!("{}", contents)
     }
-    dbg!(&cli);
 }
 
 fn ends(cli: &Cli, contents: String) -> String {
