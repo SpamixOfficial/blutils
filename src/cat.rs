@@ -17,47 +17,38 @@ use clap::{ArgAction, Parser, Subcommand};
 struct Cli {
     #[clap(value_parser, num_args = 1.., value_delimiter = ' ')]
     files: Vec<String>,
-    // Done
     #[arg(
         short = 'A',
         long = "show-all",
         help = "equivalent to -vET, indicate all non-printed characters"
     )]
     show_all: bool,
-    // Done
     #[arg(
         short = 'b',
         long = "number-nonblank",
         help = "number nonempty output lines, overrides -n"
     )]
     number_nonblank: bool,
-    // Done
     #[arg(short = 'e', help = "equivalent to -vE")]
     show_end_nonprinting: bool,
-    // Done
     #[arg(
         short = 'E',
         long = "show-ends",
         help = "display $ at end of each line"
     )]
     show_ends: bool,
-    // Done
     #[arg(short = 'n', long = "number", help = "number all output lines")]
     number: bool,
-    // TODO
     #[arg(
         short = 's',
         long = "squeeze-blank",
         help = "suppress repeated empty output lines"
     )]
     squeeze_blank: bool,
-    // Done
     #[arg(short = 't', help = "equivalent to -vT")]
     show_tabs_nonprinting: bool,
-    // Done
     #[arg(short = 'T', long = "show-tabs", help = "display TAB characters as ^I")]
     show_tabs: bool,
-    // Done
     #[arg(
         short = 'v',
         long = "show-nonprinting",
@@ -94,6 +85,7 @@ pub fn main() {
         let mut contents = fs::read_to_string(path)
             .expect("Uh oh! Reading the file went VERY wrong. Report this bug!");
         contents = nonprinting(&cli, contents);
+        contents = squeeze_blank(&cli, contents);
         contents = ends(&cli, contents);
         contents = tabs(&cli, contents);
         contents = numbering(&cli, contents);
@@ -114,6 +106,27 @@ fn ends(cli: &Cli, contents: String) -> String {
         result = nonprinting(&cli.clone(), result);
     }
     result
+}
+
+fn squeeze_blank(cli: &Cli, contents: String) -> String {
+    let mut result = String::new();
+    if cli.squeeze_blank {
+        let content_lines = contents
+            .clone()
+            .split_inclusive('\n')
+            .map(|f| f.to_string())
+            .collect::<Vec<String>>();
+        for line in content_lines {
+            // Here we make sure that ALL bytes are counted, not just characters deemed okay by
+            // len()
+            if line.trim().chars().count() != 0 {
+                result.push_str(&line);
+            }
+        }
+    } else {
+        result = contents
+    }
+    return result;
 }
 
 fn numbering(cli: &Cli, contents: String) -> String {
@@ -163,7 +176,6 @@ fn tabs(cli: &Cli, contents: String) -> String {
     let mut result = contents;
     if cli.show_tabs || cli.show_tabs_nonprinting || cli.show_all {
         result = result.replace("\t", "^I");
-        dbg!(&result.replace("\t", "^I"));
     }
     return result;
 }
@@ -171,7 +183,11 @@ fn tabs(cli: &Cli, contents: String) -> String {
 fn nonprinting(cli: &Cli, contents: String) -> String {
     // I figured the easiest way here would be to basically just build a new string from chars
     let mut result = String::new();
-    if !cli.show_nonprinting && !cli.show_end_nonprinting && !cli.show_tabs_nonprinting && !cli.show_all {
+    if !cli.show_nonprinting
+        && !cli.show_end_nonprinting
+        && !cli.show_tabs_nonprinting
+        && !cli.show_all
+    {
         return contents;
     };
     for ch in contents.chars() {
