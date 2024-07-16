@@ -11,7 +11,7 @@ use clap::Parser;
     author = "Alexander Hübner"
 )]
 struct Cli {
-    // TODO
+    // Done
     #[clap(value_parser, num_args = 1.., value_delimiter = ' ', required = true)]
     directories: Vec<PathBuf>,
     // TODO
@@ -33,7 +33,7 @@ struct Cli {
         help = "Remove DIRECTORY and its ancestors (rmdir -p a/b == rmdir a/b a)"
     )]
     parents: bool,
-    // TODO
+    // Done
     #[arg(
         short = 'v',
         long = "verbose",
