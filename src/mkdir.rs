@@ -12,7 +12,7 @@ use clap::Parser;
 #[derive(Parser, Debug, Clone)]
 #[command(
     version,
-    about = "Concatenate FILE(s) to standard output\nWhen \"-\" is passed as a FILE, cat will read from stdin",
+    about = "Create directories that doesnt already exist!",
     author = "Alexander Hübner"
 )]
 struct Cli {
@@ -77,7 +77,7 @@ pub fn main() {
 // Simple logging function - got sick of inline if statements ¯\_(ツ)_/¯
 fn log(verbose: bool, message: String) {
     if verbose {
-        println!("{}", message)
+        println!("[log] {}", message)
     }
 }
 
