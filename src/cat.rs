@@ -13,7 +13,7 @@ use clap::Parser;
     author = "Alexander Hübner"
 )]
 struct Cli {
-    #[clap(value_parser, num_args = 1.., value_delimiter = ' ')]
+    #[clap(value_parser, num_args = 1.., value_delimiter = ' ', required = true)]
     files: Vec<String>,
     #[arg(
         short = 'A',

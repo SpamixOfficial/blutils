@@ -9,7 +9,7 @@ use clap::Parser;
     author = "Alexander Hübner"
 )]
 struct Cli {
-    #[clap(value_parser, num_args = 1.., value_delimiter = ' ')]
+    #[clap(value_parser, num_args = 1.., value_delimiter = ' ', required = true)]
     directories: Vec<String>,
     #[arg(
         short = 'm',
@@ -55,8 +55,4 @@ pub fn main() {
         cli = Cli::parse();
     };
 
-    if cli.directories.is_empty() {
-        eprintln!("mkdir: Error: missing operand\nUse mkdir -h or --help for help!");
-        exit(1);
-    };
 }
