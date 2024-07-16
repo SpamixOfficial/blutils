@@ -51,13 +51,13 @@ struct Cli {
         help = "suppress repeated empty output lines"
     )]
     squeeze_blank: bool,
-    // TODO
+    // Done
     #[arg(short = 't', help = "equivalent to -vT")]
     show_tabs_nonprinting: bool,
-    // TODO
+    // Done
     #[arg(short = 'T', long = "show-tabs", help = "display TAB characters as ^I")]
     show_tabs: bool,
-    // TODO
+    // Done
     #[arg(
         short = 'v',
         long = "show-nonprinting",
@@ -93,7 +93,7 @@ pub fn main() {
         // Done!
         let mut contents = fs::read_to_string(path)
             .expect("Uh oh! Reading the file went VERY wrong. Report this bug!");
-
+        contents = nonprinting(&cli, contents);
         contents = tabs(&cli, contents);
         contents = numbering(&cli, contents);
 
@@ -160,6 +160,9 @@ fn tabs(cli: &Cli, contents: String) -> String {
 fn nonprinting(cli: &Cli, contents: String) -> String {
     // I figured the easiest way here would be to basically just build a new string from chars
     let mut result = String::new(); 
+    if !cli.show_nonprinting && !cli.show_end_nonprinting && !cli.show_tabs_nonprinting {
+        return contents
+    };
     for ch in contents.chars() {
         // Make sure it isnt a control code
         if ch as u8 >= 32 {
