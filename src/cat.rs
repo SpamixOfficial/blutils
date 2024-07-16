@@ -17,7 +17,7 @@ use clap::{ArgAction, Parser, Subcommand};
 struct Cli {
     #[clap(value_parser, num_args = 1.., value_delimiter = ' ')]
     files: Vec<String>,
-    // TODO
+    // Done
     #[arg(
         short = 'A',
         long = "show-all",
@@ -31,10 +31,10 @@ struct Cli {
         help = "number nonempty output lines, overrides -n"
     )]
     number_nonblank: bool,
-    // TODO
+    // Done
     #[arg(short = 'e', help = "equivalent to -vE")]
     show_end_nonprinting: bool,
-    // TODO
+    // Done
     #[arg(
         short = 'E',
         long = "show-ends",
@@ -94,12 +94,26 @@ pub fn main() {
         let mut contents = fs::read_to_string(path)
             .expect("Uh oh! Reading the file went VERY wrong. Report this bug!");
         contents = nonprinting(&cli, contents);
+        contents = ends(&cli, contents);
         contents = tabs(&cli, contents);
         contents = numbering(&cli, contents);
 
         println!("{}", contents)
     }
     dbg!(&cli);
+}
+
+fn ends(cli: &Cli, contents: String) -> String {
+    let mut result: String = contents;
+    if cli.show_ends || cli.show_end_nonprinting || cli.show_all {
+        result = result
+            .clone()
+            .split('\n')
+            .map(|f| format!("{f}$\n"))
+            .collect::<String>();
+        result = nonprinting(&cli.clone(), result);
+    }
+    result
 }
 
 fn numbering(cli: &Cli, contents: String) -> String {
@@ -147,21 +161,18 @@ fn numbering(cli: &Cli, contents: String) -> String {
 
 fn tabs(cli: &Cli, contents: String) -> String {
     let mut result = contents;
-    if cli.show_tabs && cli.show_tabs_nonprinting != true {
+    if cli.show_tabs || cli.show_tabs_nonprinting || cli.show_all {
         result = result.replace("\t", "^I");
         dbg!(&result.replace("\t", "^I"));
-    } else if cli.show_tabs_nonprinting {
-        result = result.replace("\t", "^I");
-        result = nonprinting(&cli.clone(), result);
-    };
+    }
     return result;
 }
 
 fn nonprinting(cli: &Cli, contents: String) -> String {
     // I figured the easiest way here would be to basically just build a new string from chars
-    let mut result = String::new(); 
-    if !cli.show_nonprinting && !cli.show_end_nonprinting && !cli.show_tabs_nonprinting {
-        return contents
+    let mut result = String::new();
+    if !cli.show_nonprinting && !cli.show_end_nonprinting && !cli.show_tabs_nonprinting && !cli.show_all {
+        return contents;
     };
     for ch in contents.chars() {
         // Make sure it isnt a control code
