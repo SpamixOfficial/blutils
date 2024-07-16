@@ -1,12 +1,9 @@
 use std::env::args;
-use std::path::{Path, PathBuf};
-use std::{
-    env::{args_os, Args},
-    fs,
-    str::Lines,
-};
+use std::path::Path;
+use std::process::exit;
+use std::fs;
 
-use clap::{ArgAction, Parser, Subcommand};
+use clap::Parser;
 
 #[derive(Parser, Debug, Clone)]
 #[command(
@@ -74,16 +71,19 @@ pub fn main() {
     for val in &cli.files {
         let path = Path::new(val);
         // TODO: Get actual error handling working!
-        // I know this is a long, long, long line, but here's what is does:
-        //
-        // It first reads the file from the path provided, then it does some very bad error
-        // handling.
-        // After that is splits (inclusively) by newlines, maps every item to owned strings and
-        // then it collects it as a Vec<String>
-        //
-        // Done!
-        let mut contents = fs::read_to_string(path)
-            .expect("Uh oh! Reading the file went VERY wrong. Report this bug!");
+        let mut contents = match fs::read_to_string(path) {
+            Ok(val) => val,
+            Err(e) => {
+                let mut error_code = 1;
+                if let Some(os_error) = e.raw_os_error() {
+                    eprintln!("cat: Error: {}", e.to_string());
+                    error_code = os_error;
+                } else {
+                    eprintln!("cat: Error: {}", e.to_string())
+                };
+                exit(error_code);
+            }
+        };
         contents = nonprinting(&cli, contents);
         contents = squeeze_blank(&cli, contents);
         contents = ends(&cli, contents);
