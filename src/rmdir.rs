@@ -10,30 +10,21 @@ use clap::Parser;
     author = "Alexander Hübner"
 )]
 struct Cli {
-    // Done
     #[clap(value_parser, num_args = 1.., value_delimiter = ' ', required = true)]
     directories: Vec<PathBuf>,
-    // TODO
     #[arg(
         long = "ignore-fail-on-non-empty",
         help = "Ignore each failure to remove a non-empty directory"
     )]
     ignore_non_empty: bool,
-    // TODO
-    #[arg(
-        short = 'm',
-        long = "mute",
-        help = "Won't produce logs of any sort"
-    )]
+    #[arg(short = 'm', long = "mute", help = "Won't produce logs of any sort")]
     mute: bool,
-    // Done
     #[arg(
         short = 'p',
         long = "parents",
         help = "Remove DIRECTORY and its ancestors (rmdir -p a/b == rmdir a/b a)"
     )]
     parents: bool,
-    // Done
     #[arg(
         short = 'v',
         long = "verbose",
@@ -44,6 +35,7 @@ struct Cli {
 
 pub fn main() {
     let cli: Cli;
+    let mut exit_code = 0;
     // skip first arg if it happens to be "blutils"
     if args().collect::<Vec<String>>()[0]
         .split("/")
@@ -56,38 +48,54 @@ pub fn main() {
         cli = Cli::parse();
     };
     for p in &cli.directories {
-        remove(&cli, p);
+        exit_code = remove(&cli, p, exit_code);
     }
+    exit(exit_code);
 }
 
-fn remove(cli: &Cli, path: &PathBuf) {
+fn remove(cli: &Cli, path: &PathBuf, exit_code: i32) -> i32 {
+    let mut return_code = exit_code;
     log(
-        cli.verbose,
+        cli.verbose && !cli.mute,
         format!("Trying to remove directory {}", path.display()),
     );
     if cli.parents {
         log(
-            cli.verbose,
+            cli.verbose && !cli.mute,
             String::from("-p flag used, removing parents..."),
         );
         for p in path.ancestors() {
             if p.display().to_string().is_empty() {
-                break
+                break;
             };
             log(
-                cli.verbose,
+                cli.verbose && !cli.mute,
                 format!("Removing {}", p.display()),
             );
             match remove_dir(p) {
                 Err(e) => {
                     let mut error_code = 1;
                     if let Some(os_error) = e.raw_os_error() {
-                        eprintln!("rmdir: Error: {}\nTrigger: {}", e.to_string(), p.display());
+                        // Here we check for the ignore_non_empty arg
+                        // If the first if statement fails we know the arg is active
+                        //
+                        // Therefor we check for the os_code. If it is "Directory not empty" we
+                        // skip printing all together
+                        if !cli.ignore_non_empty {
+                            eprintln!("rmdir: Error: {}\nTrigger: {}", e.to_string(), p.display());
+                        } else if os_error != 39 {
+                            eprintln!("rmdir: Error: {}\nTrigger: {}", e.to_string(), p.display());
+                        }
                         error_code = os_error;
                     } else {
                         eprintln!("rmdir: Error: {}\nTrigger: {}", e.to_string(), p.display())
                     };
-                    exit(error_code);
+
+                    return_code = error_code;
+
+                    if !cli.mute {
+                        exit(error_code);
+                    }
                 }
                 _ => (),
             }
@@ -97,18 +105,29 @@ fn remove(cli: &Cli, path: &PathBuf) {
             Err(e) => {
                 let mut error_code = 1;
                 if let Some(os_error) = e.raw_os_error() {
-                    eprintln!("rmdir: Error: {}", e.to_string());
+                    // Read comment on line 79
+                    if !cli.ignore_non_empty {
+                        eprintln!("rmdir: Error: {}", e.to_string());
+                    } else if os_error != 2 {
+                        eprintln!("rmdir: Error: {}", e.to_string());
+                    }
                     error_code = os_error;
                 } else {
                     eprintln!("rmdir: Error: {}", e.to_string())
                 };
-                exit(error_code)
+
+                return_code = error_code;
+
+                if !cli.mute {
+                    exit(error_code);
+                }
             }
             _ => (),
         }
     };
     log(
-        cli.verbose,
+        cli.verbose && !cli.mute,
         format!("Removal of {} successful!", path.display()),
     );
+    return_code
 }

@@ -7,7 +7,7 @@
 | ls    | list directory                                    | :red_circle:       |
 | cat   | concatenate files to stdout                       | :white_check_mark: |
 | mkdir | make directory                                    | :white_check_mark: |
-| rmdir | remove empty directory                            | :construction:     |
+| rmdir | remove empty directory                            | :white_check_mark: |
 | rm    | remove files or directories                       | :red_circle:       |
 | cp    | copy files or directories                         | :red_circle:       |
 | mv    | move files or directories                         | :red_circle:       |
