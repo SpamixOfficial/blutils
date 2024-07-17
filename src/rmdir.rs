@@ -21,11 +21,12 @@ struct Cli {
     ignore_non_empty: bool,
     // TODO
     #[arg(
-        long = "ignore-fail-all",
-        help = "Ignore EVERY failure, even if the directory doesn't exist. \n\tWill exit with exit code, but wont produce logs. Useful for log-free \"try-catch\" loops."
+        short = 'm',
+        long = "mute",
+        help = "Won't produce logs of any sort"
     )]
-    ignore_all: bool,
-    // TODO
+    mute: bool,
+    // Done
     #[arg(
         short = 'p',
         long = "parents",
