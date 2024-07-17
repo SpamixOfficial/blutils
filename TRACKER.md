@@ -10,7 +10,7 @@
 | rmdir | remove empty directory                            | :white_check_mark: |
 | rm    | remove files or directories                       | :red_circle:       |
 | cp    | copy files or directories                         | :red_circle:       |
-| mv    | move files or directories                         | :red_circle:       |
+| mv    | move files or directories                         | :construction:     |
 | ln    | make hard or symbolic links                       | :red_circle:       |
 | chown | change file owner and group                       | :red_circle:       |
 | chmod | change file permissions                           | :red_circle:       |
