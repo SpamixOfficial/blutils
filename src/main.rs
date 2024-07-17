@@ -9,6 +9,7 @@ mod ls;
 mod mkdir;
 mod rmdir;
 mod utils;
+mod mv;
 // End of modules
 
 fn main() {
@@ -26,6 +27,7 @@ fn main() {
         "cat" => cat::main(),
         "mkdir" => mkdir::main(),
         "rmdir" => rmdir::main(),
+        "mv" => mv::main(),
         _ => help(),
     }
 }

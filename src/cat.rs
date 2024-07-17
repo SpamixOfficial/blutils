@@ -1,8 +1,16 @@
 use std::env::args;
+use std::ffi::OsStr;
 use std::fs;
 use std::io::{stdin, Read};
 use std::path::Path;
 use std::process::exit;
+
+/* Syntax highlighting */
+use syntect::easy::HighlightLines;
+use syntect::parsing::SyntaxSet;
+use syntect::highlighting::{ThemeSet, Style, Color};
+use syntect::util::{as_24_bit_terminal_escaped, LinesWithEndings};
+
 
 use clap::Parser;
 
@@ -53,6 +61,8 @@ struct Cli {
         help = "use ^ and M- notation, except for LFD and TAB"
     )]
     show_nonprinting: bool,
+    #[arg(short = 'H', long = "highlight", help = "Syntax highlight the output file!")]
+    highlight: bool
 }
 
 pub fn main() {
@@ -109,7 +119,9 @@ pub fn main() {
             }
             contents = String::from_utf8(buf).expect("This is a bug that shouldnt be possible. Please report this now.");
         };
-
+        
+        let extension = Path::new(val).extension(); 
+        contents = highlight(&cli, contents, extension);
         contents = nonprinting(&cli, contents);
         contents = squeeze_blank(&cli, contents);
         contents = ends(&cli, contents);
@@ -118,6 +130,43 @@ pub fn main() {
 
         println!("{}", contents)
     }
+}
+
+fn highlight(cli: &Cli, contents: String, ext: Option<&OsStr>) -> String {
+    let mut result = String::from("");
+   
+    // Skip if there's no extension
+
+    if !cli.highlight {
+        return contents
+    };
+
+    let extension = match ext {
+        Some(val) => val.to_str().unwrap(),
+        None => {return contents}
+    };
+
+    // Copy paste from the docs, except for the fact that the extension is dynamic
+    // And that I process it in another way
+    //
+    //
+    // So kind of my own thing?
+    let ps = SyntaxSet::load_defaults_newlines();
+    let ts = ThemeSet::load_defaults();
+
+    // TODO: Fix color background
+    let theme = ts.themes["base16-ocean.dark"].clone();
+
+    let syntax = ps.find_syntax_by_extension(extension).unwrap();
+    let mut h = HighlightLines::new(syntax, &theme);
+     
+    for line in LinesWithEndings::from(contents.as_str()) {
+        let ranges: Vec<(Style, &str)> = h.highlight_line(line, &ps).unwrap();
+        let escaped = as_24_bit_terminal_escaped(&ranges[..], true);
+        result.push_str(escaped.as_str());
+    };
+
+    result
 }
 
 fn ends(cli: &Cli, contents: String) -> String {
