@@ -7,10 +7,9 @@ use std::process::exit;
 
 /* Syntax highlighting */
 use syntect::easy::HighlightLines;
+use syntect::highlighting::{Color, Style, ThemeSet};
 use syntect::parsing::SyntaxSet;
-use syntect::highlighting::{ThemeSet, Style, Color};
 use syntect::util::{as_24_bit_terminal_escaped, LinesWithEndings};
-
 
 use clap::Parser;
 
@@ -61,8 +60,12 @@ struct Cli {
         help = "use ^ and M- notation, except for LFD and TAB"
     )]
     show_nonprinting: bool,
-    #[arg(short = 'H', long = "highlight", help = "Syntax highlight the output file!")]
-    highlight: bool
+    #[arg(
+        short = 'H',
+        long = "highlight",
+        help = "Syntax highlight the output file!"
+    )]
+    highlight: bool,
 }
 
 pub fn main() {
@@ -114,13 +117,14 @@ pub fn main() {
                         eprintln!("cat: Error: {}", e.to_string())
                     };
                     exit(error_code);
-                },
-                _ => ()
+                }
+                _ => (),
             }
-            contents = String::from_utf8(buf).expect("This is a bug that shouldnt be possible. Please report this now.");
+            contents = String::from_utf8(buf)
+                .expect("This is a bug that shouldnt be possible. Please report this now.");
         };
-        
-        let extension = Path::new(val).extension(); 
+
+        let extension = Path::new(val).extension();
         contents = highlight(&cli, contents, extension);
         contents = nonprinting(&cli, contents);
         contents = squeeze_blank(&cli, contents);
@@ -134,16 +138,16 @@ pub fn main() {
 
 fn highlight(cli: &Cli, contents: String, ext: Option<&OsStr>) -> String {
     let mut result = String::from("");
-   
+
     // Skip if there's no extension
 
     if !cli.highlight {
-        return contents
+        return contents;
     };
 
     let extension = match ext {
         Some(val) => val.to_str().unwrap(),
-        None => {return contents}
+        None => return contents,
     };
 
     // Copy paste from the docs, except for the fact that the extension is dynamic
@@ -159,12 +163,12 @@ fn highlight(cli: &Cli, contents: String, ext: Option<&OsStr>) -> String {
 
     let syntax = ps.find_syntax_by_extension(extension).unwrap();
     let mut h = HighlightLines::new(syntax, &theme);
-     
+
     for line in LinesWithEndings::from(contents.as_str()) {
         let ranges: Vec<(Style, &str)> = h.highlight_line(line, &ps).unwrap();
         let escaped = as_24_bit_terminal_escaped(&ranges[..], false);
         result.push_str(escaped.as_str());
-    };
+    }
 
     result
 }
@@ -213,7 +217,8 @@ fn numbering(cli: &Cli, contents: String) -> String {
         for (i, line) in content_lines.clone().iter().enumerate() {
             // Padding is done by the total length of all lines
             content_lines[i] = format!(
-                " {:<numPadding$} | {line}",
+                "{} {:<numPadding$} | {line}",
+                if cli.highlight { "\x1b[0m" } else { "" },
                 i,
                 numPadding = content_lines.len().to_string().len()
             );
@@ -224,7 +229,8 @@ fn numbering(cli: &Cli, contents: String) -> String {
             // Padding is done by the total length of all lines
             if line_string.clone().trim().is_empty() {
                 content_lines[i2] = format!(
-                    " {:<numPadding$} | {line_string}",
+                    "{} {:<numPadding$} | {line_string}",
+                    if cli.highlight { "\x1b[0m" } else { "" },
                     "",
                     numPadding = content_lines.len().to_string().len()
                 );
