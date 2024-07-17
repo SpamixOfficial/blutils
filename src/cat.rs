@@ -162,7 +162,7 @@ fn highlight(cli: &Cli, contents: String, ext: Option<&OsStr>) -> String {
      
     for line in LinesWithEndings::from(contents.as_str()) {
         let ranges: Vec<(Style, &str)> = h.highlight_line(line, &ps).unwrap();
-        let escaped = as_24_bit_terminal_escaped(&ranges[..], true);
+        let escaped = as_24_bit_terminal_escaped(&ranges[..], false);
         result.push_str(escaped.as_str());
     };
 
