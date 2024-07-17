@@ -1,4 +1,3 @@
-
 use std::{env::args, fs::remove_dir, path::PathBuf, process::exit};
 
 use crate::utils::log;
@@ -63,25 +62,34 @@ pub fn main() {
 fn remove(cli: &Cli, path: &PathBuf) {
     log(
         cli.verbose,
-        format!("Trying to create directory {}", path.display()),
+        format!("Trying to remove directory {}", path.display()),
     );
     if cli.parents {
         log(
             cli.verbose,
-            String::from("-p flag used, creating parents..."),
+            String::from("-p flag used, removing parents..."),
         );
-        match remove_dir(path) {
-            Err(e) => {
-                let mut error_code = 1;
-                if let Some(os_error) = e.raw_os_error() {
-                    eprintln!("rmdir: Error: {}", e.to_string());
-                    error_code = os_error;
-                } else {
-                    eprintln!("rmdir: Error: {}", e.to_string())
-                };
-                exit(error_code);
+        for p in path.ancestors() {
+            if p.display().to_string().is_empty() {
+                break
+            };
+            log(
+                cli.verbose,
+                format!("Removing {}", p.display()),
+            );
+            match remove_dir(p) {
+                Err(e) => {
+                    let mut error_code = 1;
+                    if let Some(os_error) = e.raw_os_error() {
+                        eprintln!("rmdir: Error: {}\nTrigger: {}", e.to_string(), p.display());
+                        error_code = os_error;
+                    } else {
+                        eprintln!("rmdir: Error: {}\nTrigger: {}", e.to_string(), p.display())
+                    };
+                    exit(error_code);
+                }
+                _ => (),
             }
-            _ => (),
         }
     } else {
         match remove_dir(path) {
@@ -94,8 +102,12 @@ fn remove(cli: &Cli, path: &PathBuf) {
                     eprintln!("rmdir: Error: {}", e.to_string())
                 };
                 exit(error_code)
-            },
-            _ => ()
+            }
+            _ => (),
         }
     };
+    log(
+        cli.verbose,
+        format!("Removal of {} successful!", path.display()),
+    );
 }
