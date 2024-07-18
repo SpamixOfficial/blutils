@@ -1,7 +1,6 @@
+use std::{env::args, path::PathBuf};
 
-use std::env::args;
-
-use clap::Parser;
+use clap::{Args, Parser};
 
 #[derive(Parser, Debug, Clone)]
 #[command(
@@ -10,46 +9,127 @@ use clap::Parser;
     author = "Alexander Hübner"
 )]
 struct Cli {
-    #[clap(value_parser, num_args = 1.., value_delimiter = ' ', required = true)]
-    files: Vec<String>,
-    #[arg(
-        short = 'A',
-        long = "show-all",
-        help = "equivalent to -vET, indicate all non-printed characters"
-    )]
-    show_all: bool,
+    #[clap(value_parser, required = true)]
+    source: Vec<PathBuf>,
+    #[clap(value_parser, required = true)]
+    destination: PathBuf,
+    // TODO
+    #[arg(long = "backup", help = "Make a backup of each file")]
+    backup_choice: Option<Choice>,
+    // TODO
     #[arg(
         short = 'b',
-        long = "number-nonblank",
-        help = "number nonempty output lines, overrides -n"
+        help = "Like --backup but doesnt take an argument (always simple backups, will number if existing)"
     )]
-    number_nonblank: bool,
-    #[arg(short = 'e', help = "equivalent to -vE")]
-    show_end_nonprinting: bool,
+    backup: bool,
+    // TODO
+    #[arg(long = "debug", help = "Debug, also activates verbose")]
+    debug: bool,
+    // TODO
     #[arg(
-        short = 'E',
-        long = "show-ends",
-        help = "display $ at end of each line"
+        long = "exchange",
+        help = "Exchange source and destination (swap them)"
     )]
-    show_ends: bool,
-    #[arg(short = 'n', long = "number", help = "number all output lines")]
-    number: bool,
+    exchange: bool,
+    // TODO
+    #[command(flatten)]
+    destructive_actions: DestructiveActions,
+    // TODO
+    #[arg(long = "no-copy", help = "Do not copy if renaming fails")]
+    no_copy: bool,
+    // TODO
     #[arg(
-        short = 's',
-        long = "squeeze-blank",
-        help = "suppress repeated empty output lines"
+        long = "skip-trailing-slashes",
+        help = "Remove any trailing slashes from each SOURCE argument"
     )]
-    squeeze_blank: bool,
-    #[arg(short = 't', help = "equivalent to -vT")]
-    show_tabs_nonprinting: bool,
-    #[arg(short = 'T', long = "show-tabs", help = "display TAB characters as ^I")]
-    show_tabs: bool,
+    skip_trailing_slashes: bool,
+    // TODO
     #[arg(
-        short = 'v',
-        long = "show-nonprinting",
-        help = "use ^ and M- notation, except for LFD and TAB"
+        short = 'S',
+        long = "suffix",
+        help = "Specify a backup suffix (Text appended to the end of a backup filename)"
     )]
-    show_nonprinting: bool,
+    suffix: Option<String>,
+    // TODO
+    #[arg(
+        short = 't',
+        long = "target-directory",
+        help = "Move all SOURCE arguments into the specified directory"
+    )]
+    target_directory: Option<PathBuf>,
+    // TODO
+    #[arg(
+        short = 'T',
+        long = "no-target-directory",
+        help = "Treat destination as a normal file"
+    )]
+    no_target_directory: bool,
+    // TODO
+    #[arg(long = "update", help = "Control which existing files are updated")]
+    update: Option<Update>,
+    // TODO
+    #[arg(short = 'v', long = "verbose", help = "Explain whats being done")]
+    verbose: bool,
+}
+
+#[derive(Args, Clone, Copy, Debug)]
+#[group(required = false, multiple = false)]
+struct DestructiveActions {
+    // TODO
+    #[arg(
+        short = 'f',
+        long = "force",
+        help = "Do not prompt before destructive actions"
+    )]
+    force: bool,
+    // TODO
+    #[arg(
+        short = 'i',
+        long = "interactive",
+        help = "Prompt before destructive actions, opposite of force"
+    )]
+    interactive: bool,
+    // TODO
+    #[arg(
+        short = 'n',
+        long = "no-clobber",
+        help = "Never do any destructive actions"
+    )]
+    no_clobber: bool,
+}
+
+#[derive(clap::ValueEnum, Clone, Debug, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum Choice {
+    /// Never make backups, even if --backup is given
+    None,
+    /// Alias of none
+    Off,
+    /// Make numbered backups
+    Numbered,
+    /// Alias of Numbered
+    T,
+    /// Make numbered backups if existing, otherwise simple backup
+    Existing,
+    /// Alias of existing
+    Nil,
+    /// Always make simple backups
+    Simple,
+    /// Alias of simple
+    Never,
+}
+
+#[derive(clap::ValueEnum, Clone, Debug, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
+enum Update {
+    /// Every file in destination is replaced
+    #[default]
+    All,
+    /// No destination files are replaced, wont induce a failure
+    None,
+    /// Like none, but will induce a failure
+    #[clap(name = "none-fail")]
+    Nonefail,
+    /// Destination files are replaced if they are older than source
+    Older
 }
 
 pub fn main() {
@@ -65,4 +145,5 @@ pub fn main() {
     } else {
         cli = Cli::parse();
     };
-} 
+    dbg!(cli);
+}
