@@ -1,6 +1,6 @@
-use std::{env::args, ffi::CString, path::PathBuf};
+use std::{env::args, error::Error, ffi::CString, path::PathBuf, process::exit};
 
-use crate::utils::check_libc_err;
+use crate::utils::{check_libc_err, log};
 use clap::{Args, Parser};
 use libc::rename;
 
@@ -24,7 +24,7 @@ struct Cli {
         help = "Like --backup but doesnt take an argument (Default option is \"existing\")"
     )]
     backup: bool,
-    // TODO
+    // Done
     #[arg(long = "debug", help = "Debug, also activates verbose")]
     debug: bool,
     // TODO
@@ -69,7 +69,7 @@ struct Cli {
     // TODO
     #[arg(long = "update", help = "Control which existing files are updated")]
     update: Option<Update>,
-    // TODO
+    // Done
     #[arg(short = 'v', long = "verbose", help = "Explain whats being done")]
     verbose: bool,
 }
@@ -148,6 +148,7 @@ pub fn main() {
         cli = Cli::parse();
     };
     for p in &cli.source {
+        log(cli.verbose || cli.debug, format!("Moving {}", p.display()));
         mv(&cli, p)
     }
 }
@@ -155,11 +156,35 @@ pub fn main() {
 fn mv(cli: &Cli, p: &PathBuf) {
     let source = CString::new(p.to_str().unwrap()).unwrap();
     let dest = CString::new(cli.destination.to_str().unwrap()).unwrap();
+    log(
+        cli.debug,
+        format!(
+            "Debug: Source: {}, Destination: {}",
+            &source.to_str().unwrap(),
+            &dest.to_str().unwrap()
+        ),
+    );
     unsafe {
         match check_libc_err(rename(source.as_ptr(), dest.as_ptr())) {
             Ok(_) => (),
             Err(e) => {
-                dbg!(e);
+                log(
+                    cli.debug,
+                    format!(
+                        "Debug: Code: {}, Description: {}",
+                        e.raw_os_error().unwrap_or(1),
+                        e.to_string()
+                    ),
+                );
+                let mut error_code = 1;
+                if let Some(os_error) = e.raw_os_error() {
+                    eprintln!("mv: Error: {}", e.to_string());
+                    error_code = os_error;
+                } else {
+                    eprintln!("mv: Error: {}", e.to_string())
+                };
+
+                exit(error_code)
             }
         }
     };
