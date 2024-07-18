@@ -30,8 +30,10 @@ cargo run ( or ) cargo run -- --help
 cargo run -- cat 
 # mkdir
 cargo run -- mkdir
-# rmdir (not finished)
+# rmdir 
 cargo run -- rmdir
+# mv (WIP)
+cargo run -- mv
 ```
 *NOTE: All of these commands do what they are supposed to do. This can lead to ***destructive*** actions.*
 
