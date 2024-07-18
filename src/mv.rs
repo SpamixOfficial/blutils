@@ -19,7 +19,7 @@ struct Cli {
     // TODO
     #[arg(
         short = 'b',
-        help = "Like --backup but doesnt take an argument (always simple backups, will number if existing)"
+        help = "Like --backup but doesnt take an argument (Default option is \"existing\")"
     )]
     backup: bool,
     // TODO
