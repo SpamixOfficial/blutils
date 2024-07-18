@@ -9,3 +9,4 @@ edition = "2021"
 taap = "0.1.4"
 clap = { version = "4.5.4", features = ["cargo", "derive"] }
 syntect = "5.2.0"
+libc = { version = "0.2.155", features = ["extra_traits"] }

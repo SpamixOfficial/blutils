@@ -1,6 +1,8 @@
-use std::{env::args, path::PathBuf};
+use std::{env::args, ffi::CString, path::PathBuf};
 
+use crate::utils::check_libc_err;
 use clap::{Args, Parser};
+use libc::rename;
 
 #[derive(Parser, Debug, Clone)]
 #[command(
@@ -129,7 +131,7 @@ enum Update {
     #[clap(name = "none-fail")]
     Nonefail,
     /// Destination files are replaced if they are older than source
-    Older
+    Older,
 }
 
 pub fn main() {
@@ -145,5 +147,20 @@ pub fn main() {
     } else {
         cli = Cli::parse();
     };
-    dbg!(cli);
+    for p in &cli.source {
+        mv(&cli, p)
+    }
+}
+
+fn mv(cli: &Cli, p: &PathBuf) {
+    let source = CString::new(p.to_str().unwrap()).unwrap();
+    let dest = CString::new(cli.destination.to_str().unwrap()).unwrap();
+    unsafe {
+        match check_libc_err(rename(source.as_ptr(), dest.as_ptr())) {
+            Ok(_) => (),
+            Err(e) => {
+                dbg!(e);
+            }
+        }
+    };
 }
