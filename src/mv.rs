@@ -1,8 +1,16 @@
-use std::{env::args, error::Error, ffi::CString, path::PathBuf, process::exit};
+use std::{
+    env::args,
+    ffi::CString,
+    fs,
+    path::{Path, PathBuf},
+    process::exit,
+};
 
-use crate::utils::{check_libc_err, log, debug};
+use crate::utils::{debug, libc_wrap, log, wrap};
 use clap::{Args, Parser};
 use libc::rename;
+
+const PROGRAM: &str = "mv";
 
 #[derive(Parser, Debug, Clone)]
 #[command(
@@ -149,7 +157,24 @@ pub fn main() {
     };
     for p in &cli.source {
         log(cli.verbose || cli.debug, format!("Moving {}", p.display()));
-        mv(&cli, p)
+        backup(&cli, p);
+        mv(&cli, p);
+    }
+}
+
+fn backup(cli: &Cli, p: &PathBuf) {
+    // Checking for options and if the file exists
+    if (!cli.backup && !cli.backup_choice.is_some()) || cli.destination.try_exists().is_err() {
+        return;
+    };
+
+    let mut backup_path = format!("{}~", cli.destination.display());
+    let choice = cli.backup_choice.unwrap_or(Choice::Existing);
+
+    if choice == Choice::Nil || choice == Choice::Existing {
+        if !Path::new(&backup_path).exists() {
+            _ = wrap(fs::copy(p, backup_path), PROGRAM);
+        }
     }
 }
 
@@ -164,28 +189,5 @@ fn mv(cli: &Cli, p: &PathBuf) {
             &dest.to_str().unwrap()
         ),
     );
-    unsafe {
-        match check_libc_err(rename(source.as_ptr(), dest.as_ptr())) {
-            Ok(_) => (),
-            Err(e) => {
-                debug(
-                    cli.debug,
-                    format!(
-                        "Debug: Code: {}, Description: {}",
-                        e.raw_os_error().unwrap_or(1),
-                        e.to_string()
-                    ),
-                );
-                let mut error_code = 1;
-                if let Some(os_error) = e.raw_os_error() {
-                    eprintln!("mv: Error: {}", e.to_string());
-                    error_code = os_error;
-                } else {
-                    eprintln!("mv: Error: {}", e.to_string())
-                };
-
-                exit(error_code)
-            }
-        }
-    };
+    unsafe { wrap(libc_wrap(rename(source.as_ptr(), dest.as_ptr())), PROGRAM) };
 }
