@@ -5,6 +5,10 @@ The name Blutils is a wordplay between the color "blue" and the word "utils".
 
 Blutils aims to improve the experience of your system with lightwheight, :sparkles:fast:sparkles: and good looking visuals.
 
+Except just being amazing, Blutils also strives to be compatible with existing GNU coreutils. This means that Blutils brings QOL-features while feeling somewhat familiar!
+
+NOTE: Blutils is compatible in almost every way, except SELinux and SMACK functionality.
+
 This set of coretutils has a lot of work left to do, but check out the Implementation tracker down below to find out what utils are done!
 
 # Building

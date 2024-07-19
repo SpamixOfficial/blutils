@@ -3,7 +3,7 @@ use std::{
     env::args,
     ffi::CString,
     fs,
-    path::{Path, PathBuf}
+    path::{Path, PathBuf},
 };
 
 use crate::utils::{debug, libc_wrap, log, wrap};
@@ -23,10 +23,10 @@ struct Cli {
     source: Vec<PathBuf>,
     #[clap(value_parser, required = true)]
     destination: PathBuf,
-    // TODO
+    // Done
     #[arg(long = "backup", help = "Make a backup of each file")]
     backup_choice: Option<Choice>,
-    // TODO
+    // Done
     #[arg(
         short = 'b',
         help = "Like --backup but doesnt take an argument (Default option is \"existing\")"
@@ -181,8 +181,11 @@ fn backup(cli: &Cli, p: &PathBuf) {
 
     let mut backup_path = format!("{}~", cli.destination.display());
     let choice = cli.backup_choice.unwrap_or(Choice::Existing);
-    
-    log(cli.verbose || cli.debug, format!("Starting backup with choice {}", choice));
+
+    log(
+        cli.verbose || cli.debug,
+        format!("Starting backup with choice {}", choice),
+    );
 
     if choice == Choice::Nil || choice == Choice::Existing {
         if !Path::new(&backup_path).exists() {
@@ -193,11 +196,26 @@ fn backup(cli: &Cli, p: &PathBuf) {
                 backup_path = format!("{}~{}", cli.destination.display(), i);
                 if !Path::new(&backup_path).exists() {
                     _ = wrap(fs::copy(p, backup_path), PROGRAM);
-                    break
+                    log(cli.verbose || cli.debug, "Backup successful");
+                    break;
                 }
-                i = i+1;
+                i = i + 1;
             }
         }
+    } else if choice == Choice::Numbered || choice == Choice::T {
+        let mut i = 0;
+        loop {
+            backup_path = format!("{}~{}", cli.destination.display(), i);
+            if !Path::new(&backup_path).exists() {
+                _ = wrap(fs::copy(p, backup_path), PROGRAM);
+                log(cli.verbose || cli.debug, "Backup successful");
+                break;
+            }
+            i = i + 1;
+        }
+    } else if choice == Choice::Simple || choice == Choice::Never {
+        _ = wrap(fs::copy(p, backup_path), PROGRAM);
+        log(cli.verbose || cli.debug, "Backup successful");
     }
 }
 
