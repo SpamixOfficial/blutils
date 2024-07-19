@@ -7,7 +7,7 @@ use std::process::exit;
 
 /* Syntax highlighting */
 use syntect::easy::HighlightLines;
-use syntect::highlighting::{Color, Style, ThemeSet};
+use syntect::highlighting::{Style, ThemeSet};
 use syntect::parsing::SyntaxSet;
 use syntect::util::{as_24_bit_terminal_escaped, LinesWithEndings};
 

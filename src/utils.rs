@@ -1,8 +1,14 @@
-use std::io::{Result, Error};
+use std::{fmt::Display, io::{Error, Result}};
 
-pub fn log(verbose: bool, message: String) {
+pub fn log<T: Display>(verbose: bool, message: T) {
     if verbose {
         println!("[log] {}", message)
+    }
+}
+
+pub fn debug<T: Display>(debug: bool, message: T) {
+    if debug {
+        println!("[debug] {}", message)
     }
 }
 

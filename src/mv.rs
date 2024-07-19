@@ -1,6 +1,6 @@
 use std::{env::args, error::Error, ffi::CString, path::PathBuf, process::exit};
 
-use crate::utils::{check_libc_err, log};
+use crate::utils::{check_libc_err, log, debug};
 use clap::{Args, Parser};
 use libc::rename;
 
@@ -156,7 +156,7 @@ pub fn main() {
 fn mv(cli: &Cli, p: &PathBuf) {
     let source = CString::new(p.to_str().unwrap()).unwrap();
     let dest = CString::new(cli.destination.to_str().unwrap()).unwrap();
-    log(
+    debug(
         cli.debug,
         format!(
             "Debug: Source: {}, Destination: {}",
@@ -168,7 +168,7 @@ fn mv(cli: &Cli, p: &PathBuf) {
         match check_libc_err(rename(source.as_ptr(), dest.as_ptr())) {
             Ok(_) => (),
             Err(e) => {
-                log(
+                debug(
                     cli.debug,
                     format!(
                         "Debug: Code: {}, Description: {}",

@@ -62,7 +62,7 @@ fn remove(cli: &Cli, path: &PathBuf, exit_code: i32) -> i32 {
     if cli.parents {
         log(
             cli.verbose && !cli.mute,
-            String::from("-p flag used, removing parents..."),
+            "-p flag used, removing parents...",
         );
         for p in path.ancestors() {
             if p.display().to_string().is_empty() {

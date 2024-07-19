@@ -89,7 +89,7 @@ fn mode(cli: &Cli, path: &PathBuf) {
             }
             _ => (),
         };
-        log(cli.verbose, String::from("Modeset was successful!"));
+        log(cli.verbose, "Modeset was successful!");
     };
 }
 
@@ -101,7 +101,7 @@ fn create(cli: &Cli, path: &PathBuf) {
     if cli.parents {
         log(
             cli.verbose,
-            String::from("-p flag used, creating parents..."),
+            "-p flag used, creating parents...",
         );
         match create_dir_all(path) {
             Err(e) => {
@@ -133,6 +133,6 @@ fn create(cli: &Cli, path: &PathBuf) {
     };
     log(
         cli.verbose,
-        String::from("Directory was created successfully!"),
+        "Directory was created successfully!",
     );
 }
