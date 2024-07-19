@@ -1,3 +1,4 @@
+use core::fmt;
 use std::{
     env::args,
     ffi::CString,
@@ -128,6 +129,17 @@ enum Choice {
     Never,
 }
 
+impl fmt::Display for Choice {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Choice::Existing | Choice::Nil => write!(f, "Existing/Nil"),
+            Choice::None | Choice::Off => write!(f, "None/Off"),
+            Choice::Numbered | Choice::T => write!(f, "Numbered/T"),
+            Choice::Simple | Choice::Never => write!(f, "Simple/Never"),
+        }
+    }
+}
+
 #[derive(clap::ValueEnum, Clone, Debug, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 enum Update {
     /// Every file in destination is replaced
@@ -170,10 +182,22 @@ fn backup(cli: &Cli, p: &PathBuf) {
 
     let mut backup_path = format!("{}~", cli.destination.display());
     let choice = cli.backup_choice.unwrap_or(Choice::Existing);
+    
+    log(cli.verbose || cli.debug, format!("Starting backup with choice {}", choice))
 
     if choice == Choice::Nil || choice == Choice::Existing {
         if !Path::new(&backup_path).exists() {
             _ = wrap(fs::copy(p, backup_path), PROGRAM);
+        } else {
+            let mut i = 0;
+            loop {
+                backup_path = format!("{}~{}", cli.destination.display(), i);
+                if !Path::new(&backup_path).exists() {
+                    _ = wrap(fs::copy(p, backup_path), PROGRAM);
+                    break
+                }
+                i = i+1;
+            }
         }
     }
 }
