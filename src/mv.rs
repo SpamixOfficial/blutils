@@ -183,7 +183,7 @@ fn backup(cli: &Cli, p: &PathBuf) {
     let mut backup_path = format!("{}~", cli.destination.display());
     let choice = cli.backup_choice.unwrap_or(Choice::Existing);
     
-    log(cli.verbose || cli.debug, format!("Starting backup with choice {}", choice))
+    log(cli.verbose || cli.debug, format!("Starting backup with choice {}", choice));
 
     if choice == Choice::Nil || choice == Choice::Existing {
         if !Path::new(&backup_path).exists() {
