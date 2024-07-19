@@ -3,8 +3,7 @@ use std::{
     env::args,
     ffi::CString,
     fs,
-    path::{Path, PathBuf},
-    process::exit,
+    path::{Path, PathBuf}
 };
 
 use crate::utils::{debug, libc_wrap, log, wrap};

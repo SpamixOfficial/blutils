@@ -11,7 +11,11 @@ use syntect::highlighting::{Style, ThemeSet};
 use syntect::parsing::SyntaxSet;
 use syntect::util::{as_24_bit_terminal_escaped, LinesWithEndings};
 
+const PROGRAM: &str = "cat";
+
 use clap::Parser;
+
+use crate::utils::wrap;
 
 #[derive(Parser, Debug, Clone)]
 #[command(
@@ -91,35 +95,11 @@ pub fn main() {
         let mut contents;
         if val != "-" {
             let path = Path::new(val);
-            contents = match fs::read_to_string(path) {
-                Ok(val) => val,
-                Err(e) => {
-                    let mut error_code = 1;
-                    if let Some(os_error) = e.raw_os_error() {
-                        eprintln!("cat: Error: {}", e.to_string());
-                        error_code = os_error;
-                    } else {
-                        eprintln!("cat: Error: {}", e.to_string())
-                    };
-                    exit(error_code);
-                }
-            };
+            contents = wrap(fs::read_to_string(path), PROGRAM);
         } else {
             let mut stdin = stdin();
             let mut buf: Vec<u8> = vec![];
-            match stdin.read_to_end(&mut buf) {
-                Err(e) => {
-                    let mut error_code = 1;
-                    if let Some(os_error) = e.raw_os_error() {
-                        eprintln!("cat: Error: {}", e.to_string());
-                        error_code = os_error;
-                    } else {
-                        eprintln!("cat: Error: {}", e.to_string())
-                    };
-                    exit(error_code);
-                }
-                _ => (),
-            }
+            wrap(stdin.read_to_end(&mut buf), PROGRAM);
             contents = String::from_utf8(buf)
                 .expect("This is a bug that shouldnt be possible. Please report this now.");
         };
