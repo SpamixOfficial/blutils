@@ -60,7 +60,14 @@ struct Cli {
         help = "Specify a backup suffix (Text appended to the end of a backup filename)"
     )]
     suffix: Option<String>,
-    // TODO
+    // Done
+    #[arg(
+        short = 't',
+        long = "target-directory",
+        help = "Treat destination as a directory"
+    )]
+    target_directory: bool,
+    // Done
     #[arg(
         short = 'T',
         long = "no-target-directory",
@@ -216,7 +223,9 @@ fn backup(cli: &Cli, p: &PathBuf) {
 fn mv(cli: &Cli, p: &PathBuf) {
     let source: CString;
     // If option is enabled, remove trailing slashes from source
-    if cli.strip_trailing_slashes {
+    //
+    // This also applies to no_target_directory
+    if cli.strip_trailing_slashes || cli.no_target_directory {
         // Copy into a string since we need string manipulation for this!
         let mut source_copy = p.to_str().to_owned().unwrap().to_string();
         while source_copy.ends_with("/") {
@@ -225,6 +234,12 @@ fn mv(cli: &Cli, p: &PathBuf) {
         }
         // When it doesnt end with a slash the loop ends and we create a CString from our new
         // string
+        source = CString::new(source_copy).unwrap();
+    } else if cli.target_directory {
+        let mut source_copy = p.to_str().to_owned().unwrap().to_string();
+        if !source_copy.ends_with("/") {
+            source_copy.push('/');
+        };
         source = CString::new(source_copy).unwrap();
     } else {
         source = CString::new(p.to_str().unwrap()).unwrap();
