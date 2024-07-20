@@ -10,7 +10,7 @@
 | rmdir | remove empty directory                            | :white_check_mark: |
 | rm    | remove files or directories                       | :red_circle:       |
 | cp    | copy files or directories                         | :red_circle:       |
-| mv    | move files or directories                         | :construction:     |
+| mv    | move files or directories                         | :white_check_mark: |
 | ln    | make hard or symbolic links                       | :red_circle:       |
 | chown | change file owner and group                       | :red_circle:       |
 | chmod | change file permissions                           | :red_circle:       |
@@ -19,3 +19,12 @@
 | du    | estimate disk space used by files and directories | :red_circle:       |
 
 Please suggest more utilities you'd like to be included!
+
+## Compability chart
+
+| Name  | Percent | Options Missing  |
+| ----- | ------- | ---------------- |
+| cat   | 100%    | None!            |
+| mkdir | 60%     | -Z and --context |
+| rmdir | 100%    | None!            |
+| mv    | 93%     | Update options   |

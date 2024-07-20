@@ -36,7 +36,7 @@ cargo run -- cat
 cargo run -- mkdir
 # rmdir 
 cargo run -- rmdir
-# mv (WIP)
+# mv
 cargo run -- mv
 ```
 *NOTE: All of these commands do what they are supposed to do. This can lead to ***destructive*** actions.*
