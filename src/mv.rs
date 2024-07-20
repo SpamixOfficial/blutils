@@ -1,16 +1,15 @@
 use core::fmt;
 use std::{
-    any::Any,
     env::args,
     ffi::CString,
-    fs::{self, create_dir, remove_file},
+    fs::{self, remove_file},
     path::{Path, PathBuf},
     process::exit,
 };
 
 use crate::utils::{debug, libc_wrap, log, prompt, wrap};
 use clap::{Args, Parser};
-use libc::rename;
+use libc::{rename, renameat2, AT_FDCWD, RENAME_EXCHANGE};
 
 use fs_extra::dir::{move_dir, CopyOptions};
 
@@ -27,51 +26,50 @@ struct Cli {
     source: Vec<PathBuf>,
     #[clap(value_parser, required = true)]
     destination: PathBuf,
-    // Done
+
     #[arg(long = "backup", help = "Make a backup of each file")]
     backup_choice: Option<Choice>,
-    // Done
+
     #[arg(
         short = 'b',
         help = "Like --backup but doesnt take an argument (Default option is \"existing\")"
     )]
     backup: bool,
-    // Done
+
     #[arg(long = "debug", help = "Debug, also activates verbose")]
     debug: bool,
-    // TODO
     #[arg(
         long = "exchange",
         help = "Exchange source and destination (swap them)"
     )]
     exchange: bool,
-    // Done
+
     #[command(flatten)]
     destructive_actions: DestructiveActions,
-    // Done
+
     #[arg(long = "no-copy", help = "Do not copy if renaming fails")]
     no_copy: bool,
-    // Done
+
     #[arg(
         long = "strip-trailing-slashes",
         help = "Remove any trailing slashes from each SOURCE argument"
     )]
     strip_trailing_slashes: bool,
-    // Done
+
     #[arg(
         short = 'S',
         long = "suffix",
         help = "Specify a backup suffix (Text appended to the end of a backup filename)"
     )]
     suffix: Option<String>,
-    // Done
+
     #[arg(
         short = 't',
         long = "target-directory",
         help = "Treat destination as a directory"
     )]
     target_directory: bool,
-    // Done
+
     #[arg(
         short = 'T',
         long = "no-target-directory",
@@ -81,7 +79,6 @@ struct Cli {
     // Planned for later updates
     //#[arg(long = "update", help = "Control which existing files are updated")]
     //update: Option<Update>,
-    // Done
     #[arg(short = 'v', long = "verbose", help = "Explain whats being done")]
     verbose: bool,
 }
@@ -101,7 +98,6 @@ struct DestructiveActions {
         help = "Prompt before destructive actions, opposite of force"
     )]
     interactive: bool,
-    // Done
     #[arg(
         short = 'n',
         long = "no-clobber",
@@ -259,8 +255,30 @@ fn mv(cli: &Cli, p: &PathBuf) {
     debug(cli.debug, "Entering unsafe statement");
 
     unsafe {
-        let rename_result = libc_wrap(rename(source.as_ptr(), dest.as_ptr()));
+        let rename_result;
+        if !cli.exchange {
+            rename_result = libc_wrap(rename(source.as_ptr(), dest.as_ptr()));
+        } else {
+            debug(cli.debug, "Exchange was used");
+            rename_result = libc_wrap(renameat2(
+                AT_FDCWD,
+                source.as_ptr(),
+                AT_FDCWD,
+                dest.as_ptr(),
+                RENAME_EXCHANGE,
+            ));
+            dbg!(&rename_result);
+        }
+        // Not pretty, but it does the job!
         if rename_result.is_err() {
+            log(
+                cli.verbose || cli.debug,
+                "Error was encountered while moving",
+            );
+            // If we are allowed to copy, we do some copying and removing, but we alo need to take
+            // rules into account*
+            //
+            // Therefore we get a shitton of if statements :-(
             if !cli.no_copy {
                 log(
                     cli.verbose || cli.debug,
@@ -306,7 +324,13 @@ fn mv(cli: &Cli, p: &PathBuf) {
                             exit(0)
                         }
                     }
-                    move_dir(p, cli.destination.clone(), &CopyOptions::new());
+                    match move_dir(p, cli.destination.clone(), &CopyOptions::new()) {
+                        Err(e) => {
+                            eprintln!("mv: Error: {}", e.to_string());
+                            exit(1);
+                        }
+                        _ => (),
+                    };
                 }
             } else {
                 wrap(rename_result, PROGRAM);
