@@ -1,7 +1,7 @@
 use std::{
     any::Any,
     fmt::Display,
-    io::{Error, Result},
+    io::{Error, Read, Result},
     process::exit,
 };
 
@@ -40,4 +40,23 @@ pub fn wrap<T: Any, M: Display>(result: Result<T>, prog: M) -> T {
         }
     };
     return val;
+}
+
+pub fn prompt<T: Display>(question: T, d: bool) -> bool {
+    let prompt_options = match d {
+        true => "Y/n",
+        false => "N/y",
+    };
+    let default_option: char = match d {
+        true => 'y',
+        false => 'n',
+    };
+    println!("{} {}", prompt_options, question);
+    let mut input = [0];
+    let _ = std::io::stdin().read(&mut input);
+    if input[0].to_ascii_lowercase() as char == default_option {
+        return true;
+    } else {
+        return false;
+    };
 }

@@ -1,14 +1,18 @@
 use core::fmt;
 use std::{
+    any::Any,
     env::args,
     ffi::CString,
-    fs,
+    fs::{self, create_dir, remove_file},
     path::{Path, PathBuf},
+    process::exit,
 };
 
-use crate::utils::{debug, libc_wrap, log, wrap};
+use crate::utils::{debug, libc_wrap, log, prompt, wrap};
 use clap::{Args, Parser};
 use libc::rename;
+
+use fs_extra::dir::{move_dir, CopyOptions};
 
 const PROGRAM: &str = "mv";
 
@@ -41,7 +45,7 @@ struct Cli {
         help = "Exchange source and destination (swap them)"
     )]
     exchange: bool,
-    // TODO
+    // Done
     #[command(flatten)]
     destructive_actions: DestructiveActions,
     // Done
@@ -74,9 +78,9 @@ struct Cli {
         help = "Treat destination as a normal file"
     )]
     no_target_directory: bool,
-    // TODO
-    #[arg(long = "update", help = "Control which existing files are updated")]
-    update: Option<Update>,
+    // Planned for later updates
+    //#[arg(long = "update", help = "Control which existing files are updated")]
+    //update: Option<Update>,
     // Done
     #[arg(short = 'v', long = "verbose", help = "Explain whats being done")]
     verbose: bool,
@@ -85,21 +89,19 @@ struct Cli {
 #[derive(Args, Clone, Copy, Debug)]
 #[group(required = false, multiple = false)]
 struct DestructiveActions {
-    // TODO
     #[arg(
         short = 'f',
         long = "force",
         help = "Do not prompt before destructive actions"
     )]
     force: bool,
-    // TODO
     #[arg(
         short = 'i',
         long = "interactive",
         help = "Prompt before destructive actions, opposite of force"
     )]
     interactive: bool,
-    // TODO
+    // Done
     #[arg(
         short = 'n',
         long = "no-clobber",
@@ -138,8 +140,8 @@ impl fmt::Display for Choice {
         }
     }
 }
-
-#[derive(clap::ValueEnum, Clone, Debug, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
+// Planned for later releases
+/*#[derive(clap::ValueEnum, Clone, Debug, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 enum Update {
     /// Every file in destination is replaced
     #[default]
@@ -151,7 +153,7 @@ enum Update {
     Nonefail,
     /// Destination files are replaced if they are older than source
     Older,
-}
+}*/
 
 pub fn main() {
     let cli: Cli;
@@ -245,7 +247,6 @@ fn mv(cli: &Cli, p: &PathBuf) {
         source = CString::new(p.to_str().unwrap()).unwrap();
     };
     let dest = CString::new(cli.destination.to_str().unwrap()).unwrap();
-    
 
     debug(
         cli.debug,
@@ -257,7 +258,6 @@ fn mv(cli: &Cli, p: &PathBuf) {
     );
     debug(cli.debug, "Entering unsafe statement");
 
-
     unsafe {
         let rename_result = libc_wrap(rename(source.as_ptr(), dest.as_ptr()));
         if rename_result.is_err() {
@@ -266,8 +266,48 @@ fn mv(cli: &Cli, p: &PathBuf) {
                     cli.verbose || cli.debug,
                     "Renaming failed, copying instead!",
                 );
-                wrap(fs::copy(p, cli.destination.clone()), PROGRAM);
-                log(cli.verbose || cli.debug, "Copying was successful!");
+                if !p.is_dir() {
+                    if cli.destructive_actions.no_clobber && cli.destination.exists() {
+                        eprintln!(
+                            "mv: Error: About to commit destructive action - not allowed, exiting!"
+                        );
+                        exit(1);
+                    } else if cli.destination.exists() && cli.destructive_actions.interactive {
+                        if !prompt(
+                            format!(
+                                "Destructive action: {} exists and will be overwritten. Continue? ",
+                                cli.destination.display()
+                            ),
+                            false,
+                        ) {
+                            exit(0)
+                        }
+                    }
+                    wrap(fs::copy(p, cli.destination.clone()), PROGRAM);
+                    log(
+                        cli.verbose || cli.debug,
+                        "Copying was successful! Remove original..",
+                    );
+                    wrap(remove_file(p), PROGRAM);
+                } else {
+                    if cli.destructive_actions.no_clobber && cli.destination.exists() {
+                        eprintln!(
+                            "mv: Error: About to commit destructive action - not allowed, exiting!"
+                        );
+                        exit(1);
+                    } else if cli.destination.exists() && cli.destructive_actions.interactive {
+                        if !prompt(
+                            format!(
+                                "Destructive action: {} exists and will be overwritten. Continue? ",
+                                cli.destination.display()
+                            ),
+                            false,
+                        ) {
+                            exit(0)
+                        }
+                    }
+                    move_dir(p, cli.destination.clone(), &CopyOptions::new());
+                }
             } else {
                 wrap(rename_result, PROGRAM);
             }
