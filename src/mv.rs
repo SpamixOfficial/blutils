@@ -44,29 +44,22 @@ struct Cli {
     // TODO
     #[command(flatten)]
     destructive_actions: DestructiveActions,
-    // TODO
+    // Done
     #[arg(long = "no-copy", help = "Do not copy if renaming fails")]
     no_copy: bool,
-    // TODO
+    // Done
     #[arg(
-        long = "skip-trailing-slashes",
+        long = "strip-trailing-slashes",
         help = "Remove any trailing slashes from each SOURCE argument"
     )]
-    skip_trailing_slashes: bool,
-    // TODO
+    strip_trailing_slashes: bool,
+    // Done
     #[arg(
         short = 'S',
         long = "suffix",
         help = "Specify a backup suffix (Text appended to the end of a backup filename)"
     )]
     suffix: Option<String>,
-    // TODO
-    #[arg(
-        short = 't',
-        long = "target-directory",
-        help = "Move all SOURCE arguments into the specified directory"
-    )]
-    target_directory: Option<PathBuf>,
     // TODO
     #[arg(
         short = 'T',
@@ -179,7 +172,8 @@ fn backup(cli: &Cli, p: &PathBuf) {
         return;
     };
 
-    let mut backup_path = format!("{}~", cli.destination.display());
+    let suffix = cli.suffix.clone().unwrap_or(String::from("~"));
+    let mut backup_path = format!("{}{}", cli.destination.display(), suffix);
     let choice = cli.backup_choice.unwrap_or(Choice::Existing);
 
     log(
@@ -193,7 +187,7 @@ fn backup(cli: &Cli, p: &PathBuf) {
         } else {
             let mut i = 0;
             loop {
-                backup_path = format!("{}~{}", cli.destination.display(), i);
+                backup_path = format!("{}{}{}", cli.destination.display(), suffix, i);
                 if !Path::new(&backup_path).exists() {
                     _ = wrap(fs::copy(p, backup_path), PROGRAM);
                     log(cli.verbose || cli.debug, "Backup successful");
@@ -205,7 +199,7 @@ fn backup(cli: &Cli, p: &PathBuf) {
     } else if choice == Choice::Numbered || choice == Choice::T {
         let mut i = 0;
         loop {
-            backup_path = format!("{}~{}", cli.destination.display(), i);
+            backup_path = format!("{}{}{}", cli.destination.display(), suffix, i);
             if !Path::new(&backup_path).exists() {
                 _ = wrap(fs::copy(p, backup_path), PROGRAM);
                 log(cli.verbose || cli.debug, "Backup successful");
@@ -220,7 +214,21 @@ fn backup(cli: &Cli, p: &PathBuf) {
 }
 
 fn mv(cli: &Cli, p: &PathBuf) {
-    let source = CString::new(p.to_str().unwrap()).unwrap();
+    let source: CString;
+    // If option is enabled, remove trailing slashes from source
+    if cli.strip_trailing_slashes {
+        // Copy into a string since we need string manipulation for this!
+        let mut source_copy = p.to_str().to_owned().unwrap().to_string();
+        while source_copy.ends_with("/") {
+            // Discard the result, we dont really care about it ¯\_(ツ)_/¯
+            _ = source_copy.pop()
+        }
+        // When it doesnt end with a slash the loop ends and we create a CString from our new
+        // string
+        source = CString::new(source_copy).unwrap();
+    } else {
+        source = CString::new(p.to_str().unwrap()).unwrap();
+    };
     let dest = CString::new(cli.destination.to_str().unwrap()).unwrap();
     debug(
         cli.debug,
@@ -230,5 +238,21 @@ fn mv(cli: &Cli, p: &PathBuf) {
             &dest.to_str().unwrap()
         ),
     );
-    unsafe { wrap(libc_wrap(rename(source.as_ptr(), dest.as_ptr())), PROGRAM) };
+    debug(cli.debug, "Entering unsafe statement");
+    unsafe {
+        let rename_result = libc_wrap(rename(source.as_ptr(), dest.as_ptr()));
+        if rename_result.is_err() {
+            if !cli.no_copy {
+                log(
+                    cli.verbose || cli.debug,
+                    "Renaming failed, copying instead!",
+                );
+                wrap(fs::copy(p, cli.destination.clone()), PROGRAM);
+                log(cli.verbose || cli.debug, "Copying was successful!");
+            } else {
+                wrap(rename_result, PROGRAM);
+            }
+        }
+        debug(cli.debug, "Exiting unsafe statement");
+    };
 }
