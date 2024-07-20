@@ -245,6 +245,8 @@ fn mv(cli: &Cli, p: &PathBuf) {
         source = CString::new(p.to_str().unwrap()).unwrap();
     };
     let dest = CString::new(cli.destination.to_str().unwrap()).unwrap();
+    
+
     debug(
         cli.debug,
         format!(
@@ -254,6 +256,8 @@ fn mv(cli: &Cli, p: &PathBuf) {
         ),
     );
     debug(cli.debug, "Entering unsafe statement");
+
+
     unsafe {
         let rename_result = libc_wrap(rename(source.as_ptr(), dest.as_ptr()));
         if rename_result.is_err() {
