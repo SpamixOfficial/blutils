@@ -9,7 +9,7 @@
 | mkdir | make directory                                    | :white_check_mark: |
 | rmdir | remove empty directory                            | :white_check_mark: |
 | rm    | remove files or directories                       | :red_circle:       |
-| cp    | copy files or directories                         | :red_circle:       |
+| cp    | copy files or directories                         | :construction:     |
 | mv    | move files or directories                         | :white_check_mark: |
 | ln    | make hard or symbolic links                       | :red_circle:       |
 | chown | change file owner and group                       | :red_circle:       |
