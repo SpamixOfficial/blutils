@@ -25,8 +25,9 @@ struct Cli {
     destination: PathBuf,
 
     #[arg(short = 'a', long = "archive", help = "Same as -dR --preserve=all")]
+    archive: bool,
     #[arg(long = "attributes-only", help = "")]
-
+    attributes_only: bool,
     #[arg(long = "backup", help = "Make a backup of each file")]
     backup_choice: Option<Choice>,
 
@@ -35,25 +36,73 @@ struct Cli {
         help = "Like --backup but doesnt take an argument (Default option is \"existing\")"
     )]
     backup: bool,
-    
-    #[arg(short = '', long = "", help = "")]
-    #[arg(short = '', long = "", help = "")]
+
+    #[arg(
+        long = "copy-contents",
+        help = "Copy contents of special files when recursive"
+    )]
+    copy_contents: bool,
+    #[arg(short = 'd', help = "Same as --no-dereference --preserve=links")]
+    no_symb_preserve_links: bool,
     #[arg(long = "debug", help = "Debug, also activates verbose")]
     debug: bool,
 
     #[command(flatten)]
     destructive_actions: DestructiveActions,
-    #[arg(short = '', long = "", help = "")]
-
-    #[arg(long = "no-copy", help = "Do not copy if renaming fails")]
-    no_copy: bool,
-
+    #[arg(short = 'H', help = "Follow command-line symbolic links in SOURCE")]
+    follow_symb: bool,
+    #[arg(
+        short = 'l',
+        long = "link",
+        help = "Hard link files instead of copying"
+    )]
+    link: bool,
+    #[arg(
+        short = 'L',
+        long = "dereference",
+        help = "Always follow symbolic links in SOURCE",
+        conflicts_with("no_dereference")
+    )]
+    dereference: bool,
+    #[arg(
+        short = 'P',
+        long = "no-dereference",
+        help = "Never follow symbolic links in SOURCE",
+        conflicts_with("dereference")
+    )]
+    no_dereference: bool,
+    #[arg(short = 'p', help = "Same as --preserve=mode,ownership,timestamps")]
+    alias_mode_own_time: bool,
+    #[arg(long = "preserve", help = "Preserve the specified attributes")]
+    preserve: Option<Vec<Attributes>>,
+    #[arg(long = "no-preserve", help = "Don't preserve the specified attributes")]
+    no_preserve: Option<Vec<Attributes>>,
+    #[arg(long = "parents", help = "Use full source file name under DIRECTORY")]
+    parents: bool,
+    #[arg(
+        short = 'R',
+        long = "recursive",
+        help = "Copy directories recursively",
+        short_alias('r')
+    )]
+    recursive: bool,
+    #[arg(
+        long = "remove-destination",
+        help = "Remove each existing destination file before attempting to open it (contrast with --force)
+"
+    )]
+    remove_destination: bool,
     #[arg(
         long = "strip-trailing-slashes",
         help = "Remove any trailing slashes from each SOURCE argument"
     )]
     strip_trailing_slashes: bool,
-
+    #[arg(
+        short = 's',
+        long = "symbolic-link",
+        help = "Make symbolic links instead of copying"
+    )]
+    symbolic_link: bool,
     #[arg(
         short = 'S',
         long = "suffix",
@@ -77,8 +126,13 @@ struct Cli {
     // Planned for later updates
     //#[arg(long = "update", help = "Control which existing files are updated")]
     //update: Option<Update>,
-    #[arg(short = 'v', long = "verbose", help = "Explain whats being done")]
+    #[arg(short = 'v', long = "verbose", help = "explain whats being done")]
     verbose: bool,
+    #[arg(
+        long = "keep-directory-symlink",
+        help = "Follow existing symlinks to directories"
+    )]
+    keep_symlinks: bool,
 }
 
 #[derive(Args, Clone, Copy, Debug)]
@@ -99,9 +153,23 @@ struct DestructiveActions {
     #[arg(
         short = 'n',
         long = "no-clobber",
-        help = "Never do any destructive actions"
+        help = "Never do any destructive actions (silently)"
     )]
     no_clobber: bool,
+}
+
+#[derive(clap::ValueEnum, Clone, Debug, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum Attributes {
+    /// Preserve permissions
+    Mode,
+    /// Preserve user and groups
+    Ownership,
+    /// Preserve all timestamps
+    Timestamps,
+    /// Preserve hard links
+    Links,
+    /// Preserve everything
+    All,
 }
 
 #[derive(clap::ValueEnum, Clone, Debug, Copy, PartialEq, Eq, PartialOrd, Ord)]
