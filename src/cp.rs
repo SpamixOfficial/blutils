@@ -2,9 +2,10 @@ use core::fmt;
 use std::{
     env::args,
     ffi::CString,
-    fs::{self, hard_link, remove_dir_all, remove_file},
+    fs::{self, create_dir, create_dir_all, hard_link, read_dir, remove_dir_all, remove_file},
     path::{Path, PathBuf},
     process::exit,
+    thread::panicking,
 };
 
 use crate::utils::{debug, log, prompt, wrap};
@@ -96,7 +97,7 @@ struct Cli {
     //TODO
     #[arg(long = "parents", help = "Use full source file name under DIRECTORY")]
     parents: bool,
-    //TODO
+    // Done
     #[arg(
         short = 'R',
         long = "recursive",
@@ -369,7 +370,7 @@ fn slashes(cli: &Cli, p: PathBuf) -> PathBuf {
 fn cp(cli: &Cli, p: PathBuf) {
     // Check for destructive actions, and commit necessary follow-up actions
     destructive_check(cli);
-    
+
     // If we need to remove destination before-hand
     if cli.remove_destination {
         _ = wrap(
@@ -380,11 +381,38 @@ fn cp(cli: &Cli, p: PathBuf) {
             PROGRAM,
         );
     };
-    
+
+    if !cli.recursive && !p.is_dir() {
+        normal_cp(cli, &p)
+    } else {
+        recursive_cp(cli, &p)
+    }
+}
+
+fn normal_cp(cli: &Cli, p: &PathBuf) {
     // No match statement here because of incompatible return types of wrapped functions
     if cli.link {
         _ = wrap(hard_link(p, &cli.destination), PROGRAM);
     } else {
         _ = wrap(fs::copy(p, &cli.destination), PROGRAM);
+    }
+}
+
+fn recursive_cp(cli: &Cli, p: &PathBuf) {
+    // Create new root directory
+    _ = wrap(create_dir(&cli.destination), PROGRAM);
+
+    for entry in read_dir(p).unwrap() {
+        let path = entry.unwrap().path();
+        let newpath = Path::new(&cli.destination).join(&path.strip_prefix(&p).unwrap());
+        if path.is_dir() {
+            _ = wrap(create_dir_all(newpath), PROGRAM);
+        } else {
+            if cli.link {
+                _ = wrap(hard_link(path, newpath), PROGRAM);
+            } else {
+                _ = wrap(fs::copy(path, newpath), PROGRAM);
+            }
+        }
     }
 }
