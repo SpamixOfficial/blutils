@@ -122,7 +122,7 @@ struct Cli {
         help = "Make symbolic links instead of copying"
     )]
     symbolic_link: bool,
-    //TODO
+    // Done
     #[arg(
         short = 'S',
         long = "suffix",
@@ -161,18 +161,21 @@ struct Cli {
 #[derive(Args, Clone, Copy, Debug)]
 #[group(required = false, multiple = false)]
 struct DestructiveActions {
+    // TODO
     #[arg(
         short = 'f',
         long = "force",
         help = "Do not prompt before destructive actions"
     )]
     force: bool,
+    // TODO
     #[arg(
         short = 'i',
         long = "interactive",
         help = "Prompt before destructive actions, opposite of force"
     )]
     interactive: bool,
+    // TODO
     #[arg(
         short = 'n',
         long = "no-clobber",
@@ -193,6 +196,19 @@ enum Attributes {
     Links,
     /// Preserve everything
     All,
+}
+
+
+impl fmt::Display for Attributes {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Attributes::Mode => write!(f, "Attributes::Mode"),
+            Attributes::All => write!(f, "Attributes::All"),
+            Attributes::Links => write!(f, "Attributes::Links"),
+            Attributes::Timestamps => write!(f, "Attributes::Timestamps"),
+            Attributes::Ownership => write!(f, "Attributes::Ownership"),
+        }
+    }
 }
 
 #[derive(clap::ValueEnum, Clone, Debug, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -218,10 +234,10 @@ enum Choice {
 impl fmt::Display for Choice {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Choice::Existing | Choice::Nil => write!(f, "Existing/Nil"),
-            Choice::None | Choice::Off => write!(f, "None/Off"),
-            Choice::Numbered | Choice::T => write!(f, "Numbered/T"),
-            Choice::Simple | Choice::Never => write!(f, "Simple/Never"),
+            Choice::Existing | Choice::Nil => write!(f, "Choice::Existing/Choice::Nil"),
+            Choice::None | Choice::Off => write!(f, "Choice::None/Choice::Off"),
+            Choice::Numbered | Choice::T => write!(f, "Choice::Numbered/Choice::T"),
+            Choice::Simple | Choice::Never => write!(f, "Choice::Simple/Choice::Never"),
         }
     }
 }
