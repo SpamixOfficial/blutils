@@ -198,7 +198,6 @@ enum Attributes {
     All,
 }
 
-
 impl fmt::Display for Attributes {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
@@ -325,6 +324,23 @@ fn backup(cli: &Cli, p: PathBuf) -> PathBuf {
     return p;
 }
 
+fn destructive_check(cli: &Cli) {
+    if cli.destructive_actions.no_clobber && cli.destination.exists() {
+        eprintln!("mv: Error: About to commit destructive action - not allowed, exiting!");
+        exit(1);
+    } else if cli.destination.exists() && cli.destructive_actions.interactive {
+        if !prompt(
+            format!(
+                "Destructive action: {} exists and will be overwritten. Continue? ",
+                cli.destination.display()
+            ),
+            false,
+        ) {
+            exit(0)
+        }
+    }
+}
+
 fn slashes(cli: &Cli, p: PathBuf) -> PathBuf {
     let source;
     if cli.strip_trailing_slashes || cli.no_target_directory {
@@ -349,4 +365,7 @@ fn slashes(cli: &Cli, p: PathBuf) -> PathBuf {
     return source;
 }
 
-fn cp(cli: &Cli, p: PathBuf) {}
+fn cp(cli: &Cli, p: PathBuf) {
+    destructive_check(cli);
+    _ = wrap(fs::copy(p, &cli.destination), PROGRAM);
+}

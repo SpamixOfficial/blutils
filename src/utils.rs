@@ -47,16 +47,12 @@ pub fn prompt<T: Display>(question: T, d: bool) -> bool {
         true => "Y/n",
         false => "N/y",
     };
-    let default_option: char = match d {
-        true => 'y',
-        false => 'n',
-    };
     println!("{} {}", prompt_options, question);
     let mut input = [0];
     let _ = std::io::stdin().read(&mut input);
-    if input[0].to_ascii_lowercase() as char == default_option {
-        return true;
-    } else {
-        return false;
-    };
+    match input[0].to_ascii_lowercase() as char {
+        'y' => true,
+        'n' => false,
+        _ => {return d}
+    }
 }
