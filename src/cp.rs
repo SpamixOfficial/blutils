@@ -54,7 +54,7 @@ struct Cli {
     #[arg(long = "debug", help = "Debug, also activates verbose")]
     debug: bool,
 
-    //TODO
+    //Done
     #[command(flatten)]
     destructive_actions: DestructiveActions,
     //TODO
@@ -103,7 +103,7 @@ struct Cli {
         short_alias('r')
     )]
     recursive: bool,
-    //TODO
+    // Done
     #[arg(
         long = "remove-destination",
         help = "Remove each existing destination file before attempting to open it (contrast with --force)"
@@ -161,21 +161,21 @@ struct Cli {
 #[derive(Args, Clone, Copy, Debug)]
 #[group(required = false, multiple = false)]
 struct DestructiveActions {
-    // TODO
+    // Done
     #[arg(
         short = 'f',
         long = "force",
         help = "Do not prompt before destructive actions"
     )]
     force: bool,
-    // TODO
+    // Done
     #[arg(
         short = 'i',
         long = "interactive",
         help = "Prompt before destructive actions, opposite of force"
     )]
     interactive: bool,
-    // TODO
+    // Done
     #[arg(
         short = 'n',
         long = "no-clobber",
@@ -367,5 +367,12 @@ fn slashes(cli: &Cli, p: PathBuf) -> PathBuf {
 
 fn cp(cli: &Cli, p: PathBuf) {
     destructive_check(cli);
+    if cli.remove_destination {
+        if cli.destination.is_dir() {
+            _ = wrap(fs::remove_dir_all(&cli.destination), PROGRAM);
+        } else {
+            _ = wrap(fs::remove_file(&cli.destination), PROGRAM);
+        }
+    };
     _ = wrap(fs::copy(p, &cli.destination), PROGRAM);
 }
