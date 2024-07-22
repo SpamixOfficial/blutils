@@ -24,39 +24,50 @@ struct Cli {
     #[clap(value_parser, required = true)]
     destination: PathBuf,
 
+    //TODO
     #[arg(short = 'a', long = "archive", help = "Same as -dR --preserve=all")]
     archive: bool,
+    //TODO
     #[arg(long = "attributes-only", help = "")]
     attributes_only: bool,
+    //Done
     #[arg(long = "backup", help = "Make a backup of each file")]
     backup_choice: Option<Choice>,
 
+    //Done
     #[arg(
         short = 'b',
         help = "Like --backup but doesnt take an argument (Default option is \"existing\")"
     )]
     backup: bool,
 
+    //TODO
     #[arg(
         long = "copy-contents",
         help = "Copy contents of special files when recursive"
     )]
     copy_contents: bool,
+    //TODO
     #[arg(short = 'd', help = "Same as --no-dereference --preserve=links")]
     no_symb_preserve_links: bool,
+    //Done
     #[arg(long = "debug", help = "Debug, also activates verbose")]
     debug: bool,
 
+    //TODO
     #[command(flatten)]
     destructive_actions: DestructiveActions,
+    //TODO
     #[arg(short = 'H', help = "Follow command-line symbolic links in SOURCE")]
     follow_symb: bool,
+    //TODO
     #[arg(
         short = 'l',
         long = "link",
         help = "Hard link files instead of copying"
     )]
     link: bool,
+    //TODO
     #[arg(
         short = 'L',
         long = "dereference",
@@ -64,6 +75,7 @@ struct Cli {
         conflicts_with("no_dereference")
     )]
     dereference: bool,
+    //TODO
     #[arg(
         short = 'P',
         long = "no-dereference",
@@ -71,14 +83,19 @@ struct Cli {
         conflicts_with("dereference")
     )]
     no_dereference: bool,
+    //TODO
     #[arg(short = 'p', help = "Same as --preserve=mode,ownership,timestamps")]
     alias_mode_own_time: bool,
+    //TODO
     #[arg(long = "preserve", help = "Preserve the specified attributes")]
     preserve: Option<Vec<Attributes>>,
+    //TODO
     #[arg(long = "no-preserve", help = "Don't preserve the specified attributes")]
     no_preserve: Option<Vec<Attributes>>,
+    //TODO
     #[arg(long = "parents", help = "Use full source file name under DIRECTORY")]
     parents: bool,
+    //TODO
     #[arg(
         short = 'R',
         long = "recursive",
@@ -86,23 +103,26 @@ struct Cli {
         short_alias('r')
     )]
     recursive: bool,
+    //TODO
     #[arg(
         long = "remove-destination",
-        help = "Remove each existing destination file before attempting to open it (contrast with --force)
-"
+        help = "Remove each existing destination file before attempting to open it (contrast with --force)"
     )]
     remove_destination: bool,
+    // Done
     #[arg(
         long = "strip-trailing-slashes",
         help = "Remove any trailing slashes from each SOURCE argument"
     )]
     strip_trailing_slashes: bool,
+    //TODO
     #[arg(
         short = 's',
         long = "symbolic-link",
         help = "Make symbolic links instead of copying"
     )]
     symbolic_link: bool,
+    //TODO
     #[arg(
         short = 'S',
         long = "suffix",
@@ -110,6 +130,7 @@ struct Cli {
     )]
     suffix: Option<String>,
 
+    // Done
     #[arg(
         short = 't',
         long = "target-directory",
@@ -117,6 +138,7 @@ struct Cli {
     )]
     target_directory: bool,
 
+    // Done
     #[arg(
         short = 'T',
         long = "no-target-directory",
@@ -128,6 +150,7 @@ struct Cli {
     //update: Option<Update>,
     #[arg(short = 'v', long = "verbose", help = "explain whats being done")]
     verbose: bool,
+    //TODO
     #[arg(
         long = "keep-directory-symlink",
         help = "Follow existing symlinks to directories"
@@ -230,19 +253,20 @@ pub fn main() {
     } else {
         cli = Cli::parse();
     };
-    for p in &cli.source {
+    for mut p in cli.source.clone() {
         log(cli.verbose || cli.debug, format!("Moving {}", p.display()));
-        backup(&cli, p);
+        p = slashes(&cli, p);
+        p = backup(&cli, p);
         cp(&cli, p);
     }
 }
 
-fn backup(cli: &Cli, p: &PathBuf) {
+fn backup(cli: &Cli, p: PathBuf) -> PathBuf {
     // Checking for options and if the file exists
     if (!cli.backup && !cli.backup_choice.is_some()) || cli.destination.try_exists().is_err() {
-        return;
+        return p;
     };
-
+    let p_clone = p.clone();
     let suffix = cli.suffix.clone().unwrap_or(String::from("~"));
     let mut backup_path = format!("{}{}", cli.destination.display(), suffix);
     let choice = cli.backup_choice.unwrap_or(Choice::Existing);
@@ -254,13 +278,13 @@ fn backup(cli: &Cli, p: &PathBuf) {
 
     if choice == Choice::Nil || choice == Choice::Existing {
         if !Path::new(&backup_path).exists() {
-            _ = wrap(fs::copy(p, backup_path), PROGRAM);
+            _ = wrap(fs::copy(p_clone, backup_path), PROGRAM);
         } else {
             let mut i = 0;
             loop {
                 backup_path = format!("{}{}{}", cli.destination.display(), suffix, i);
                 if !Path::new(&backup_path).exists() {
-                    _ = wrap(fs::copy(p, backup_path), PROGRAM);
+                    _ = wrap(fs::copy(p_clone, backup_path), PROGRAM);
                     log(cli.verbose || cli.debug, "Backup successful");
                     break;
                 }
@@ -272,16 +296,41 @@ fn backup(cli: &Cli, p: &PathBuf) {
         loop {
             backup_path = format!("{}{}{}", cli.destination.display(), suffix, i);
             if !Path::new(&backup_path).exists() {
-                _ = wrap(fs::copy(p, backup_path), PROGRAM);
+                _ = wrap(fs::copy(p_clone, backup_path), PROGRAM);
                 log(cli.verbose || cli.debug, "Backup successful");
                 break;
             }
             i = i + 1;
         }
     } else if choice == Choice::Simple || choice == Choice::Never {
-        _ = wrap(fs::copy(p, backup_path), PROGRAM);
+        _ = wrap(fs::copy(p_clone, backup_path), PROGRAM);
         log(cli.verbose || cli.debug, "Backup successful");
     }
+    return p;
 }
 
-fn cp(cli: &Cli, p: &PathBuf) {}
+fn slashes(cli: &Cli, p: PathBuf) -> PathBuf {
+    let source;
+    if cli.strip_trailing_slashes || cli.no_target_directory {
+        // Copy into a string since we need string manipulation for this!
+        let mut source_copy = p.to_str().to_owned().unwrap().to_string();
+        while source_copy.ends_with("/") {
+            // Discard the result, we dont really care about it ¯\_(ツ)_/¯
+            _ = source_copy.pop()
+        }
+        // When it doesnt end with a slash the loop ends and we create a CString from our new
+        // string
+        source = PathBuf::from(source_copy);
+    } else if cli.target_directory {
+        let mut source_copy = p.to_str().to_owned().unwrap().to_string();
+        if !source_copy.ends_with("/") {
+            source_copy.push('/');
+        };
+        source = PathBuf::from(source_copy);
+    } else {
+        return p;
+    };
+    return source;
+}
+
+fn cp(cli: &Cli, p: PathBuf) {}
