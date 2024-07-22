@@ -2,7 +2,7 @@ use core::fmt;
 use std::{
     env::args,
     ffi::CString,
-    fs::{self, remove_file},
+    fs::{self, hard_link, remove_dir_all, remove_file},
     path::{Path, PathBuf},
     process::exit,
 };
@@ -44,7 +44,8 @@ struct Cli {
     //TODO
     #[arg(
         long = "copy-contents",
-        help = "Copy contents of special files when recursive"
+        help = "Copy contents of special files when recursive",
+        requires("recursive")
     )]
     copy_contents: bool,
     //TODO
@@ -60,7 +61,7 @@ struct Cli {
     //TODO
     #[arg(short = 'H', help = "Follow command-line symbolic links in SOURCE")]
     follow_symb: bool,
-    //TODO
+    // Done
     #[arg(
         short = 'l',
         long = "link",
@@ -366,13 +367,24 @@ fn slashes(cli: &Cli, p: PathBuf) -> PathBuf {
 }
 
 fn cp(cli: &Cli, p: PathBuf) {
+    // Check for destructive actions, and commit necessary follow-up actions
     destructive_check(cli);
+    
+    // If we need to remove destination before-hand
     if cli.remove_destination {
-        if cli.destination.is_dir() {
-            _ = wrap(fs::remove_dir_all(&cli.destination), PROGRAM);
-        } else {
-            _ = wrap(fs::remove_file(&cli.destination), PROGRAM);
-        }
+        _ = wrap(
+            match cli.destination.is_dir() {
+                true => remove_dir_all(&cli.destination),
+                _ => remove_file(&cli.destination),
+            },
+            PROGRAM,
+        );
     };
-    _ = wrap(fs::copy(p, &cli.destination), PROGRAM);
+    
+    // No match statement here because of incompatible return types of wrapped functions
+    if cli.link {
+        _ = wrap(hard_link(p, &cli.destination), PROGRAM);
+    } else {
+        _ = wrap(fs::copy(p, &cli.destination), PROGRAM);
+    }
 }
