@@ -1,10 +1,9 @@
 use core::fmt;
 use std::{
     env::args,
-    fs::{self, create_dir, create_dir_all, hard_link, read_dir, remove_dir_all, remove_file},
+    fs::{self, create_dir, create_dir_all, hard_link, read_dir, remove_dir_all, remove_file, File},
     path::{Path, PathBuf},
     process::exit,
-    thread::panicking,
 };
 
 use crate::utils::{debug, log, prompt, wrap};
@@ -386,6 +385,7 @@ fn cp(cli: &Cli, p: PathBuf) {
     } else {
         recursive_cp(cli, &p)
     }
+    preserve(cli, &p);
 }
 
 fn normal_cp(cli: &Cli, p: &PathBuf) {
@@ -418,6 +418,34 @@ fn recursive_cp(cli: &Cli, p: &PathBuf) {
     }
 }
 
-fn preserve(cli: &Cli, p: &PathBuf) {
+fn preserve(cli: &Cli, source: File, destination: File) {
+    // Just return of the option isnt used!
+    if cli.preserve.is_none() && cli.no_preserve.is_none() {
+        return ();
+    };
+
+    let mut preserve_list: Vec<Attributes> = vec![Attributes::Mode];
+    // If preserve is specified, overwrite the default
+    if cli.preserve.is_some() {
+        preserve_list = cli.clone().preserve.unwrap();
+    };
+    // If no_preserve is specified, remove the items specified from the list
+    if cli.no_preserve.is_some() {
+        preserve_list.retain(|val| !cli.clone().no_preserve.unwrap().contains(val))
+    }
     
+    preserve_list.sort();
+    preserve_list.dedup();
+
+    for attribute in preserve_list {
+        match attribute {
+            Attributes::Ownership => {
+                let original_perms = source.metadata()?.permissions();
+                destination.set_permissions(original_perms);
+            },
+            
+        }
+    }
 }
+
+fn preserve_perms(source: File, destination: File) {}
