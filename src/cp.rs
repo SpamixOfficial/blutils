@@ -6,8 +6,7 @@ use std::{
         remove_file, File, FileTimes,
     },
     path::{Path, PathBuf},
-    process::exit,
-    sync::Arc,
+    process::exit
 };
 
 use crate::utils::{debug, log, prompt, wrap};
