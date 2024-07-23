@@ -6,7 +6,7 @@ use std::{
         remove_file, File, FileTimes,
     },
     path::{Path, PathBuf},
-    process::exit
+    process::exit,
 };
 
 use crate::utils::{debug, log, prompt, wrap};
@@ -95,7 +95,7 @@ struct Cli {
     // Done
     #[arg(long = "no-preserve", help = "Don't preserve the specified attributes")]
     no_preserve: Option<Vec<Attributes>>,
-    //TODO
+    //Done
     #[arg(long = "parents", help = "Use full source file name under DIRECTORY")]
     parents: bool,
     // Done
@@ -414,8 +414,7 @@ fn cp(cli: &Cli, p: PathBuf) {
     } else {
         source = p;
     }
-
-    if !cli.recursive && source.is_dir() {
+    if !cli.recursive || !source.is_dir() {
         debug(
             cli.debug && (cli.dereference || cli.no_dereference),
             "Either dereference or no-dereference was used, has no effect on normal files!",
@@ -435,9 +434,17 @@ fn cp(cli: &Cli, p: PathBuf) {
 }
 
 fn normal_cp(cli: &Cli, p: &PathBuf) {
-    // No match statement here because of incompatible return types of wrapped functions
+    dbg!("hi");
+    // no match statement here because of incompatible return types of wrapped functions
+    let mut destination = cli.destination.clone();
+    if destination.is_dir() {
+        destination.push(p.file_stem().unwrap());
+    };
+    if cli.parents {
+        _ = wrap(create_dir_all(destination.parent().unwrap()), PROGRAM);
+    };
     if cli.attributes_only {
-        match File::create_new(&cli.destination) {
+        match File::create_new(&destination) {
             Err(_) => log(
                 cli.debug || cli.verbose,
                 "File does exist, just setting attributes instead!",
@@ -445,16 +452,16 @@ fn normal_cp(cli: &Cli, p: &PathBuf) {
             _ => (),
         };
     } else if cli.link {
-        _ = wrap(hard_link(p, &cli.destination), PROGRAM);
+        _ = wrap(hard_link(p, &destination), PROGRAM);
     } else {
-        _ = wrap(fs::copy(p, &cli.destination), PROGRAM);
+        _ = wrap(fs::copy(p, &destination), PROGRAM);
     }
     preserve(
         cli,
         p,
         File::options()
             .write(true)
-            .open(cli.clone().destination)
+            .open(destination)
             .unwrap(),
     );
 }
@@ -462,15 +469,23 @@ fn normal_cp(cli: &Cli, p: &PathBuf) {
 fn recursive_cp(cli: &Cli, p: &PathBuf) {
     // Create new root directory
     _ = wrap(create_dir(&cli.destination), PROGRAM);
+    
+    let mut destination = cli.destination.clone();
+    if destination.is_dir() {
+        destination.push(p.file_stem().unwrap());
+    };
+    if cli.parents {
+        _ = wrap(create_dir_all(destination.parent().unwrap()), PROGRAM);
+    };
 
     for entry in read_dir(p).unwrap() {
         let path = entry.unwrap().path();
-        let newpath = Path::new(&cli.destination).join(&path.strip_prefix(&p).unwrap());
+        let newpath = Path::new(&destination).join(&path.strip_prefix(&p).unwrap());
         if path.is_dir() {
             _ = wrap(create_dir_all(newpath), PROGRAM);
         } else {
             if cli.attributes_only {
-                match File::create_new(&cli.destination) {
+                match File::create_new(&destination) {
                     Err(_) => log(
                         cli.debug || cli.verbose,
                         "File does exist, just setting attributes instead!",
@@ -493,7 +508,7 @@ fn recursive_cp(cli: &Cli, p: &PathBuf) {
             p,
             File::options()
                 .write(true)
-                .open(cli.clone().destination)
+                .open(destination.clone())
                 .unwrap(),
         );
     }
