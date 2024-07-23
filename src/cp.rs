@@ -6,7 +6,8 @@ use std::{
         remove_file, File, FileTimes,
     },
     path::{Path, PathBuf},
-    process::exit, sync::Arc,
+    process::exit,
+    sync::Arc,
 };
 
 use crate::utils::{debug, log, prompt, wrap};
@@ -86,7 +87,7 @@ struct Cli {
         conflicts_with("dereference")
     )]
     no_dereference: bool,
-    //TODO
+    //Done
     #[arg(short = 'p', help = "Same as --preserve=mode,ownership,timestamps")]
     alias_mode_own_time: bool,
     // Done
@@ -283,7 +284,17 @@ pub fn main() {
         cli.recursive = true;
         let mut preserve_copy = cli.preserve.unwrap_or(vec![Attributes::Mode]);
         preserve_copy.push(Attributes::All);
-        cli.preserve = Some(preserve_copy);        
+        cli.preserve = Some(preserve_copy);
+    }
+
+    if cli.alias_mode_own_time {
+        let mut preserve_copy = cli.preserve.unwrap_or(vec![Attributes::Mode]);
+        preserve_copy.append(&mut vec![
+            Attributes::Mode,
+            Attributes::Timestamps,
+            Attributes::Ownership,
+        ]);
+        cli.preserve = Some(preserve_copy);
     }
 
     for mut p in cli.source.clone() {
@@ -410,10 +421,16 @@ fn cp(cli: &Cli, p: PathBuf) {
             cli.debug && (cli.dereference || cli.no_dereference),
             "Either dereference or no-dereference was used, has no effect on normal files!",
         );
-        log(cli.debug || cli.verbose, "Normal file, proceeding with normal cp");
+        log(
+            cli.debug || cli.verbose,
+            "Normal file, proceeding with normal cp",
+        );
         normal_cp(cli, &source)
     } else {
-        log(cli.debug || cli.verbose, "Directory, proceeding with recursive cp");
+        log(
+            cli.debug || cli.verbose,
+            "Directory, proceeding with recursive cp",
+        );
         recursive_cp(cli, &source)
     }
 }
