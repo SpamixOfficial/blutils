@@ -5,6 +5,7 @@ use std::{
         self, create_dir, create_dir_all, hard_link, metadata, read_dir, read_link, remove_dir_all,
         remove_file, File, FileTimes,
     },
+    os::unix::fs::symlink,
     path::{Path, PathBuf},
     process::exit,
 };
@@ -118,7 +119,7 @@ struct Cli {
         help = "Remove any trailing slashes from each SOURCE argument"
     )]
     strip_trailing_slashes: bool,
-    //TODO
+    // Done
     #[arg(
         short = 's',
         long = "symbolic-link",
@@ -153,12 +154,6 @@ struct Cli {
     //update: Option<Update>,
     #[arg(short = 'v', long = "verbose", help = "explain whats being done")]
     verbose: bool,
-    //TODO
-    #[arg(
-        long = "keep-directory-symlink",
-        help = "Follow existing symlinks to directories"
-    )]
-    keep_symlinks: bool,
 }
 
 #[derive(Args, Clone, Copy, Debug)]
@@ -434,12 +429,11 @@ fn cp(cli: &Cli, p: PathBuf) {
 }
 
 fn normal_cp(cli: &Cli, p: &PathBuf) {
-    dbg!("hi");
-    // no match statement here because of incompatible return types of wrapped functions
     let mut destination = cli.destination.clone();
     if destination.is_dir() {
         destination.push(p.file_stem().unwrap());
     };
+
     if cli.parents {
         _ = wrap(create_dir_all(destination.parent().unwrap()), PROGRAM);
     };
@@ -453,23 +447,22 @@ fn normal_cp(cli: &Cli, p: &PathBuf) {
         };
     } else if cli.link {
         _ = wrap(hard_link(p, &destination), PROGRAM);
+    } else if cli.symbolic_link {
+        _ = wrap(symlink(p, &destination), PROGRAM);
     } else {
         _ = wrap(fs::copy(p, &destination), PROGRAM);
     }
     preserve(
         cli,
         p,
-        File::options()
-            .write(true)
-            .open(destination)
-            .unwrap(),
+        File::options().write(true).open(destination).unwrap(),
     );
 }
 
 fn recursive_cp(cli: &Cli, p: &PathBuf) {
     // Create new root directory
     _ = wrap(create_dir(&cli.destination), PROGRAM);
-    
+
     let mut destination = cli.destination.clone();
     if destination.is_dir() {
         destination.push(p.file_stem().unwrap());
@@ -494,6 +487,8 @@ fn recursive_cp(cli: &Cli, p: &PathBuf) {
                 };
             } else if cli.link && !cli.dereference {
                 _ = wrap(hard_link(path, newpath), PROGRAM);
+            } else if cli.symbolic_link && !cli.dereference {
+                _ = wrap(symlink(path, newpath), PROGRAM);
             // If dereference is active we need to read the symlink and copy directly
             // There will never be a situation where both dereference and no-dereference will be
             // active at the same time since clap makes them conflict with each other
