@@ -22,9 +22,10 @@ Please suggest more utilities you'd like to be included!
 
 ## Compability chart
 
-| Name  | Percent | Options Missing  |
-| ----- | ------- | ---------------- |
-| cat   | 100%    | None!            |
-| mkdir | 60%     | -Z and --context |
-| rmdir | 100%    | None!            |
-| mv    | 93%     | Update options   |
+| Name  | Percent | Options Missing                           |
+| ----- | ------- | ----------------------------------------- |
+| cat   | 100%    | None!                                     |
+| mkdir | 60%     | -Z and --context                          |
+| rmdir | 100%    | None!                                     |
+| mv    | 93%     | Update options                            |
+| cp    | 73%     | SELINUX and SMACK missing, Update options |
