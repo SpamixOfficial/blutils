@@ -2,10 +2,11 @@ use core::fmt;
 use std::{
     env::args,
     fs::{
-        self, create_dir, create_dir_all, hard_link, metadata, read_dir, read_link, remove_dir_all, remove_file, File, FileTimes, Metadata
+        self, create_dir, create_dir_all, hard_link, metadata, read_dir, read_link, remove_dir_all,
+        remove_file, File, FileTimes,
     },
     path::{Path, PathBuf},
-    process::exit,
+    process::exit, sync::Arc,
 };
 
 use crate::utils::{debug, log, prompt, wrap};
@@ -25,7 +26,7 @@ struct Cli {
     #[clap(value_parser, required = true)]
     destination: PathBuf,
 
-    //TODO
+    //Done
     #[arg(short = 'a', long = "archive", help = "Same as -dR --preserve=all")]
     archive: bool,
     //TODO
@@ -42,14 +43,14 @@ struct Cli {
     )]
     backup: bool,
 
-    //TODO
-    #[arg(
+    //TODO Unsure how this would be implemented!
+    /*#[arg(
         long = "copy-contents",
         help = "Copy contents of special files when recursive",
         requires("recursive")
     )]
-    copy_contents: bool,
-    //TODO
+    copy_contents: bool,*/
+    //Done
     #[arg(short = 'd', help = "Same as --no-dereference --preserve=links")]
     no_symb_preserve_links: bool,
     //Done
@@ -69,7 +70,7 @@ struct Cli {
         help = "Hard link files instead of copying"
     )]
     link: bool,
-    //TODO
+    //Done
     #[arg(
         short = 'L',
         long = "dereference",
@@ -77,7 +78,7 @@ struct Cli {
         conflicts_with("no_dereference")
     )]
     dereference: bool,
-    //TODO
+    //Done
     #[arg(
         short = 'P',
         long = "no-dereference",
@@ -258,7 +259,7 @@ enum Update {
 }*/
 
 pub fn main() {
-    let cli: Cli;
+    let mut cli: Cli;
     // skip first arg if it happens to be "blutils"
     if args().collect::<Vec<String>>()[0]
         .split("/")
@@ -270,6 +271,21 @@ pub fn main() {
     } else {
         cli = Cli::parse();
     };
+
+    if cli.no_symb_preserve_links || cli.archive {
+        cli.no_dereference = true;
+        let mut preserve_copy = cli.preserve.unwrap_or(vec![Attributes::Mode]);
+        preserve_copy.push(Attributes::Links);
+        cli.preserve = Some(preserve_copy);
+    }
+
+    if cli.archive {
+        cli.recursive = true;
+        let mut preserve_copy = cli.preserve.unwrap_or(vec![Attributes::Mode]);
+        preserve_copy.push(Attributes::All);
+        cli.preserve = Some(preserve_copy);        
+    }
+
     for mut p in cli.source.clone() {
         log(cli.verbose || cli.debug, format!("Moving {}", p.display()));
         p = slashes(&cli, p);
@@ -383,15 +399,21 @@ fn cp(cli: &Cli, p: PathBuf) {
     };
 
     let source;
-    if cli.follow_symb {
+    if cli.follow_symb && p.is_symlink() {
         source = wrap(read_link(p), PROGRAM);
     } else {
         source = p;
     }
 
     if !cli.recursive && source.is_dir() {
+        debug(
+            cli.debug && (cli.dereference || cli.no_dereference),
+            "Either dereference or no-dereference was used, has no effect on normal files!",
+        );
+        log(cli.debug || cli.verbose, "Normal file, proceeding with normal cp");
         normal_cp(cli, &source)
     } else {
+        log(cli.debug || cli.verbose, "Directory, proceeding with recursive cp");
         recursive_cp(cli, &source)
     }
 }
@@ -423,8 +445,13 @@ fn recursive_cp(cli: &Cli, p: &PathBuf) {
         if path.is_dir() {
             _ = wrap(create_dir_all(newpath), PROGRAM);
         } else {
-            if cli.link {
+            if cli.link && !cli.dereference {
                 _ = wrap(hard_link(path, newpath), PROGRAM);
+            // If dereference is active we need to read the symlink and copy directly
+            // There will never be a situation where both dereference and no-dereference will be
+            // active at the same time since clap makes them conflict with each other
+            } else if cli.dereference && path.is_symlink() {
+                _ = wrap(fs::copy(wrap(read_link(path), PROGRAM), newpath), PROGRAM);
             } else {
                 _ = wrap(fs::copy(path, newpath), PROGRAM);
             }
