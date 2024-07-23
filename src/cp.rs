@@ -30,7 +30,7 @@ struct Cli {
     //Done
     #[arg(short = 'a', long = "archive", help = "Same as -dR --preserve=all")]
     archive: bool,
-    //TODO
+    //Done
     #[arg(long = "attributes-only", help = "")]
     attributes_only: bool,
     //Done
@@ -437,7 +437,15 @@ fn cp(cli: &Cli, p: PathBuf) {
 
 fn normal_cp(cli: &Cli, p: &PathBuf) {
     // No match statement here because of incompatible return types of wrapped functions
-    if cli.link {
+    if cli.attributes_only {
+        match File::create_new(&cli.destination) {
+            Err(_) => log(
+                cli.debug || cli.verbose,
+                "File does exist, just setting attributes instead!",
+            ),
+            _ => (),
+        };
+    } else if cli.link {
         _ = wrap(hard_link(p, &cli.destination), PROGRAM);
     } else {
         _ = wrap(fs::copy(p, &cli.destination), PROGRAM);
@@ -462,7 +470,15 @@ fn recursive_cp(cli: &Cli, p: &PathBuf) {
         if path.is_dir() {
             _ = wrap(create_dir_all(newpath), PROGRAM);
         } else {
-            if cli.link && !cli.dereference {
+            if cli.attributes_only {
+                match File::create_new(&cli.destination) {
+                    Err(_) => log(
+                        cli.debug || cli.verbose,
+                        "File does exist, just setting attributes instead!",
+                    ),
+                    _ => (),
+                };
+            } else if cli.link && !cli.dereference {
                 _ = wrap(hard_link(path, newpath), PROGRAM);
             // If dereference is active we need to read the symlink and copy directly
             // There will never be a situation where both dereference and no-dereference will be
