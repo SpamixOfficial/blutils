@@ -2,14 +2,14 @@
 
 ## Current planned utils
 
-| Name  | Description                                       | Status             |
+| Name  | Description                                     | Status            |
 | ----- | ------------------------------------------------- | ------------------ |
 | ls    | list directory                                    | :red_circle:       |
 | cat   | concatenate files to stdout                       | :white_check_mark: |
 | mkdir | make directory                                    | :white_check_mark: |
 | rmdir | remove empty directory                            | :white_check_mark: |
 | rm    | remove files or directories                       | :red_circle:       |
-| cp    | copy files or directories                         | :construction:     |
+| cp    | copy files or directories                         | :white_check_mark: |
 | mv    | move files or directories                         | :white_check_mark: |
 | ln    | make hard or symbolic links                       | :red_circle:       |
 | chown | change file owner and group                       | :red_circle:       |
