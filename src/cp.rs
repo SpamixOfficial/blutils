@@ -2,8 +2,7 @@ use core::fmt;
 use std::{
     env::args,
     fs::{
-        self, create_dir, create_dir_all, hard_link, metadata, read_dir, remove_dir_all,
-        remove_file, File, FileTimes, Metadata,
+        self, create_dir, create_dir_all, hard_link, metadata, read_dir, read_link, remove_dir_all, remove_file, File, FileTimes, Metadata
     },
     path::{Path, PathBuf},
     process::exit,
@@ -60,7 +59,7 @@ struct Cli {
     //Done
     #[command(flatten)]
     destructive_actions: DestructiveActions,
-    //TODO
+    // Done
     #[arg(short = 'H', help = "Follow command-line symbolic links in SOURCE")]
     follow_symb: bool,
     // Done
@@ -383,10 +382,17 @@ fn cp(cli: &Cli, p: PathBuf) {
         );
     };
 
-    if !cli.recursive && !p.is_dir() {
-        normal_cp(cli, &p)
+    let source;
+    if cli.follow_symb {
+        source = wrap(read_link(p), PROGRAM);
     } else {
-        recursive_cp(cli, &p)
+        source = p;
+    }
+
+    if !cli.recursive && source.is_dir() {
+        normal_cp(cli, &source)
+    } else {
+        recursive_cp(cli, &source)
     }
 }
 
@@ -423,6 +429,14 @@ fn recursive_cp(cli: &Cli, p: &PathBuf) {
                 _ = wrap(fs::copy(path, newpath), PROGRAM);
             }
         }
+        preserve(
+            cli,
+            p,
+            File::options()
+                .write(true)
+                .open(cli.clone().destination)
+                .unwrap(),
+        );
     }
 }
 
