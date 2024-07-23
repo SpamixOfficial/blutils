@@ -1,7 +1,10 @@
 use core::fmt;
 use std::{
     env::args,
-    fs::{self, create_dir, create_dir_all, hard_link, read_dir, remove_dir_all, remove_file, File},
+    fs::{
+        self, create_dir, create_dir_all, hard_link, metadata, read_dir, remove_dir_all,
+        remove_file, File, FileTimes, Metadata,
+    },
     path::{Path, PathBuf},
     process::exit,
 };
@@ -86,10 +89,10 @@ struct Cli {
     //TODO
     #[arg(short = 'p', help = "Same as --preserve=mode,ownership,timestamps")]
     alias_mode_own_time: bool,
-    //TODO
+    // Done
     #[arg(long = "preserve", help = "Preserve the specified attributes")]
     preserve: Option<Vec<Attributes>>,
-    //TODO
+    // Done
     #[arg(long = "no-preserve", help = "Don't preserve the specified attributes")]
     no_preserve: Option<Vec<Attributes>>,
     //TODO
@@ -385,7 +388,6 @@ fn cp(cli: &Cli, p: PathBuf) {
     } else {
         recursive_cp(cli, &p)
     }
-    preserve(cli, &p);
 }
 
 fn normal_cp(cli: &Cli, p: &PathBuf) {
@@ -395,8 +397,14 @@ fn normal_cp(cli: &Cli, p: &PathBuf) {
     } else {
         _ = wrap(fs::copy(p, &cli.destination), PROGRAM);
     }
-
-    
+    preserve(
+        cli,
+        p,
+        File::options()
+            .write(true)
+            .open(cli.clone().destination)
+            .unwrap(),
+    );
 }
 
 fn recursive_cp(cli: &Cli, p: &PathBuf) {
@@ -418,7 +426,7 @@ fn recursive_cp(cli: &Cli, p: &PathBuf) {
     }
 }
 
-fn preserve(cli: &Cli, source: File, destination: File) {
+fn preserve(cli: &Cli, p: &PathBuf, destination: File) {
     // Just return of the option isnt used!
     if cli.preserve.is_none() && cli.no_preserve.is_none() {
         return ();
@@ -433,19 +441,23 @@ fn preserve(cli: &Cli, source: File, destination: File) {
     if cli.no_preserve.is_some() {
         preserve_list.retain(|val| !cli.clone().no_preserve.unwrap().contains(val))
     }
-    
+
     preserve_list.sort();
     preserve_list.dedup();
 
     for attribute in preserve_list {
-        match attribute {
-            Attributes::Ownership => {
-                let original_perms = source.metadata()?.permissions();
-                destination.set_permissions(original_perms);
-            },
-            
+        let source = metadata(p).unwrap();
+        // Mode is always preserved automatically, so no need to implement
+        //
+        // Links will be implemented some time in the future, and "All" is also implemented
+        if attribute == Attributes::Ownership || attribute == Attributes::All {
+            _ = wrap(destination.set_permissions(source.permissions()), PROGRAM);
+        }
+        if attribute == Attributes::Timestamps || attribute == Attributes::All {
+            let mut original_times = FileTimes::new();
+            original_times = original_times.set_accessed(source.clone().accessed().unwrap());
+            original_times = original_times.set_modified(source.clone().modified().unwrap());
+            _ = wrap(destination.set_times(original_times), PROGRAM);
         }
     }
 }
-
-fn preserve_perms(source: File, destination: File) {}
