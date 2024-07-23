@@ -1,7 +1,6 @@
 use core::fmt;
 use std::{
     env::args,
-    ffi::CString,
     fs::{self, create_dir, create_dir_all, hard_link, read_dir, remove_dir_all, remove_file},
     path::{Path, PathBuf},
     process::exit,
@@ -396,6 +395,8 @@ fn normal_cp(cli: &Cli, p: &PathBuf) {
     } else {
         _ = wrap(fs::copy(p, &cli.destination), PROGRAM);
     }
+
+    
 }
 
 fn recursive_cp(cli: &Cli, p: &PathBuf) {
@@ -415,4 +416,8 @@ fn recursive_cp(cli: &Cli, p: &PathBuf) {
             }
         }
     }
+}
+
+fn preserve(cli: &Cli, p: &PathBuf) {
+    
 }

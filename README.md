@@ -24,11 +24,6 @@ The most solid way I can recommend to try out blutils is by using the command "c
 
 Here's the commands you'll need to try it out:
 ```
-# We need to build the metadata files first
-python build.py 
-
-# Now we can run the "cargo run" commands! Here's a list down below for trying them out
-
 # help page
 cargo run ( or ) cargo run -- --help
 # cat
