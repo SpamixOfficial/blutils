@@ -147,6 +147,7 @@ fn rm(cli: &Cli, p: &PathBuf) {
 }
 
 fn normal_rm(cli: &Cli, p: &PathBuf) {
+    log(cli.verbose, format!("Removing {} {}...", p.type_display(), p.display()));
     _ = wrap(remove_file(p), PROGRAM);
 }
 
