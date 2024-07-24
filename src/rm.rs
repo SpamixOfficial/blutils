@@ -7,7 +7,7 @@ use std::{
     process::exit,
 };
 
-use crate::utils::{log, prompt, wrap, PathExtras, PathType};
+use crate::utils::{log, prompt, wrap, PathExtras};
 use clap::{Args, Parser};
 use walkdir::WalkDir;
 
@@ -25,10 +25,11 @@ struct Cli {
     // Done
     #[command(flatten)]
     destructive_actions: DestructiveActions,
-    // TODO
+    // Done
     #[arg(
         long = "one-file-system",
-        help = "When removing a hierarchy recursively, skip any directory that is on a file system different from that of the corresponding command line argument"
+        help = "When removing a hierarchy recursively, skip any directory that is on a file system different from that of the corresponding command line argument",
+        requires("requires")
     )]
     one_file_system: bool,
 
@@ -147,7 +148,12 @@ fn destructive_handle(cli: &Cli, path: Option<&PathBuf>) {
         }
         return;
     }
-    if cli.destructive_actions.force || cli.destructive_actions.interactive_when.is_some_and(|x| x == When::Never) {
+    if cli.destructive_actions.force
+        || cli
+            .destructive_actions
+            .interactive_when
+            .is_some_and(|x| x == When::Never)
+    {
         log(
             cli.verbose,
             "Force enabled, skipping any checks and just proceeding",
@@ -216,19 +222,21 @@ fn normal_rm(cli: &Cli, p: &PathBuf) {
     );
     if cli.rm_empty_dir && p.is_dir() {
         if p.read_dir().unwrap().next().is_none() {
-                _ = wrap(remove_dir(p), PROGRAM);
-                return;
+            _ = wrap(remove_dir(p), PROGRAM);
+            return;
         };
     }
     _ = wrap(remove_file(p), PROGRAM);
 }
 
 fn recursive_rm(cli: &Cli, p: &PathBuf) {
-    for entry in WalkDir::new(&p)
-        .contents_first(true)
-        .into_iter()
-        .filter_map(|e| e.ok())
-    {
+    let mut dir = WalkDir::new(&p).contents_first(true);
+
+    if cli.one_file_system {
+        dir = dir.same_file_system(true);
+    };
+
+    for entry in dir.into_iter().filter_map(|e| e.ok()) {
         let path = entry.path();
         log(
             cli.verbose,
@@ -247,7 +255,7 @@ fn recursive_rm(cli: &Cli, p: &PathBuf) {
 
 fn write_protection(p: &PathBuf) -> bool {
     let perms = get_mode(p);
-    if perms.Owner == 4 && perms.Others == 4 && perms.Group == 4 {
+    if perms.owner == 4 && perms.other == 4 && perms.group == 4 {
         return true;
     } else {
         return false;
@@ -264,15 +272,15 @@ fn get_mode(p: &PathBuf) -> FilePerm {
             .filter_map(|f| f.parse::<u32>().ok())
             .collect();
         FilePerm {
-            Owner: ints.get(0).unwrap().to_owned(),
-            Group: ints.get(1).unwrap().to_owned(),
-            Others: ints.get(2).unwrap().to_owned(),
+            owner: ints.get(0).unwrap().to_owned(),
+            group: ints.get(1).unwrap().to_owned(),
+            other: ints.get(2).unwrap().to_owned(),
         }
     };
 }
 
 struct FilePerm {
-    Owner: u32,
-    Group: u32,
-    Others: u32,
+    owner: u32,
+    group: u32,
+    other: u32,
 }

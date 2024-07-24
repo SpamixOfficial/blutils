@@ -8,7 +8,7 @@
 | cat   | concatenate files to stdout                       | :white_check_mark: |
 | mkdir | make directory                                    | :white_check_mark: |
 | rmdir | remove empty directory                            | :white_check_mark: |
-| rm    | remove files or directories                       | :construction:     |
+| rm    | remove files or directories                       | :white_check_mark: |
 | cp    | copy files or directories                         | :white_check_mark: |
 | mv    | move files or directories                         | :white_check_mark: |
 | ln    | make hard or symbolic links                       | :red_circle:       |
