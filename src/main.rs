@@ -11,6 +11,7 @@ mod rmdir;
 mod utils;
 mod mv;
 mod cp;
+mod rm;
 // End of modules
 
 fn main() {
@@ -30,6 +31,7 @@ fn main() {
         "rmdir" => rmdir::main(),
         "mv" => mv::main(),
         "cp" => cp::main(),
+        "rm" => rm::main(),
         _ => help(),
     }
 }
