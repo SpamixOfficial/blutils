@@ -1,6 +1,6 @@
 use core::fmt;
 use std::{
-    env::args, fs::{remove_dir, remove_file}, path::{Path, PathBuf}, process::exit
+    env::args, fs::{remove_dir, remove_file}, os::unix::fs::PermissionsExt, path::{Path, PathBuf}, process::exit
 };
 
 use crate::utils::{log, prompt, wrap, PathExtras, PathType};
@@ -46,7 +46,7 @@ struct Cli {
         requires("recursive")
     )]
     rm_empty_dir: bool,
-    // TODO
+    // Done
     #[arg(
         short = 'v',
         long = "verbose",
@@ -155,9 +155,16 @@ fn recursive_rm(cli: &Cli, p: &PathBuf) {
     for entry in WalkDir::new(&p).contents_first(true).into_iter().filter_map(|e| e.ok()) {
         let path = entry.path();
         log(cli.verbose, format!("Removing {} {}...", path.type_display(), path.display()));
-        match path.ptype() {
+        dbg!(format!("{}", &path.metadata().unwrap().permissions().mode() & 0o777));
+        write_protection(p);
+        /*match path.ptype() {
             PathType::File | PathType::Symlink => wrap(remove_file(path), PROGRAM),
             PathType::Directory => wrap(remove_dir(path), PROGRAM)
-        }
+        }*/ 
     } 
+}
+
+fn write_protection(p: &PathBuf) {
+    let raw_mode = format!("{:o}", &p.metadata().unwrap().permissions().mode());
+    let perms = raw_mode.split_at(raw_mode.len()-3).1;
 }

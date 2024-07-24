@@ -15,6 +15,7 @@ Cargo.lock
 
 # Testing files and directories
 test_links/
+a/
 test
 
 # Build directory
