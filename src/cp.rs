@@ -460,13 +460,13 @@ fn normal_cp(cli: &Cli, p: &PathBuf) {
 }
 
 fn recursive_cp(cli: &Cli, p: &PathBuf) {
-    // Create new root directory
-    _ = wrap(create_dir(&cli.destination), PROGRAM);
-
+    // Create new root directory 
     let mut destination = cli.destination.clone();
-    if destination.is_dir() {
+    if destination.is_dir() && destination.exists() {
         destination.push(p.file_stem().unwrap());
+        dbg!(&destination.exists());
     };
+    _ = wrap(create_dir(&destination), PROGRAM);
     if cli.parents {
         _ = wrap(create_dir_all(destination.parent().unwrap()), PROGRAM);
     };
@@ -501,10 +501,9 @@ fn recursive_cp(cli: &Cli, p: &PathBuf) {
         preserve(
             cli,
             p,
-            File::options()
+            wrap(File::options()
                 .write(true)
-                .open(destination.clone())
-                .unwrap(),
+                .open(destination.clone()), PROGRAM),
         );
     }
 }

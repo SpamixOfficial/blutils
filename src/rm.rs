@@ -1,13 +1,9 @@
 use core::fmt;
 use std::{
-    env::args,
-    fs::{create_dir, create_dir_all, set_permissions, Permissions},
-    os::unix::fs::PermissionsExt,
-    path::PathBuf,
-    process::exit,
+    env::args, fs::remove_file, path::{Path, PathBuf}, process::exit
 };
 
-use crate::utils::{debug, log, prompt, wrap};
+use crate::utils::{log, prompt, wrap};
 use clap::{Args, Parser};
 
 const PROGRAM: &str = "rm";
@@ -46,6 +42,7 @@ struct Cli {
         short = 'd',
         long = "dir",
         help = "Remove empty directories",
+        requires("recursive")
     )]
     rm_empty_dir: bool,
     // TODO
@@ -129,4 +126,29 @@ pub fn main() {
     } else {
         cli = Cli::parse();
     };
+    for p in &cli.files {
+        rm(&cli, p);
+    }
+
+}
+
+fn rm(cli: &Cli, p: &PathBuf) {
+    if cli.destructive_actions.force && cli.recursive && p == Path::new("/") && !cli.no_preserve_root {
+        println!("HEADS UP! You are trying to remove the root directory of your system.\nThis is not possible without no-preserve-root.\n\nYOU ARE NOT REMOVING THE FRENCH LANGUAGE PACK, YOU ARE REMOVING YOUR SYSTEM");
+        exit(0);
+    };
+
+    if !cli.recursive {
+        normal_rm(cli, p);
+    } else {
+        recursive_rm(cli, p);
+    }
+}
+
+fn normal_rm(cli: &Cli, p: &PathBuf) {
+    _ = wrap(remove_file(p), PROGRAM);
+}
+
+fn recursive_rm(cli: &Cli, p: &PathBuf) {
+     
 }
