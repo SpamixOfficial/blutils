@@ -22,10 +22,10 @@ const PROGRAM: &str = "rm";
 struct Cli {
     #[clap(value_parser, num_args = 1.., value_delimiter = ' ', required = true)]
     files: Vec<PathBuf>,
-    // Done
+    
     #[command(flatten)]
     destructive_actions: DestructiveActions,
-    // Done
+    
     #[arg(
         long = "one-file-system",
         help = "When removing a hierarchy recursively, skip any directory that is on a file system different from that of the corresponding command line argument",
@@ -35,7 +35,7 @@ struct Cli {
 
     #[arg(long = "no-preserve-root", help = "Do not treat '/' specially")]
     no_preserve_root: bool,
-    // Done
+    
     #[arg(
         short = 'R',
         long = "recursive",
@@ -43,7 +43,7 @@ struct Cli {
         short_alias('r')
     )]
     recursive: bool,
-    // Done
+    
     #[arg(
         short = 'd',
         long = "dir",
@@ -51,7 +51,7 @@ struct Cli {
         requires("recursive")
     )]
     rm_empty_dir: bool,
-    // Done
+    
     #[arg(
         short = 'v',
         long = "verbose",
@@ -63,26 +63,26 @@ struct Cli {
 #[derive(Args, Clone, Copy, Debug)]
 #[group(required = false, multiple = false)]
 struct DestructiveActions {
-    // Done
+    
     #[arg(
         short = 'f',
         long = "force",
         help = "Do not prompt before destructive actions"
     )]
     force: bool,
-    // Done
+    
     #[arg(
         short = 'i',
         help = "Prompt before destructive actions, opposite of force"
     )]
     interactive: bool,
-    // Done
+    
     #[arg(
         short = 'I',
         help = "Prompt once before removing 3 or more files, or if recursive"
     )]
     interactive_recursive: bool,
-    // Done
+    
     #[arg(
         long = "interactive", 
         help = "Prompt according to the WHEN variable - If no WHEN is specified then always prompt", 
