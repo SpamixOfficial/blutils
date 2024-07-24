@@ -1,8 +1,5 @@
 use std::{
-    any::Any,
-    fmt::Display,
-    io::{Error, Read, Result},
-    process::exit,
+    any::Any, fmt::Display, fs::File, io::{Error, Read, Result}, path::Path, process::exit
 };
 
 pub fn log<T: Display>(verbose: bool, message: T) {
@@ -23,6 +20,38 @@ pub fn libc_wrap<T: Ord + Default>(num: T) -> Result<T> {
         return Err(Error::last_os_error());
     }
     Ok(num)
+}
+
+pub trait PathExtras {
+    fn type_display(&self) -> Box<dyn Display>;
+    fn ptype(&self) -> PathType;
+}
+
+impl PathExtras for Path {
+    fn type_display(&self) -> Box<dyn Display> {
+        if self.is_dir() {
+            Box::new("directory")
+        } else if self.is_symlink() {
+            Box::new("symlink")
+        } else {
+            Box::new("file")
+        }
+    }
+    fn ptype(&self) -> PathType {
+        if self.is_dir() {
+            PathType::Directory
+        } else if self.is_symlink() {
+            PathType::Symlink
+        } else {
+            PathType::File
+        }
+    }
+}
+
+pub enum PathType {
+    File,
+    Directory,
+    Symlink
 }
 
 pub fn wrap<T: Any, M: Display>(result: Result<T>, prog: M) -> T {

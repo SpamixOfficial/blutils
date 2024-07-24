@@ -1,10 +1,11 @@
 use core::fmt;
 use std::{
-    env::args, fs::remove_file, path::{Path, PathBuf}, process::exit
+    env::args, fs::{remove_dir, remove_file}, path::{Path, PathBuf}, process::exit
 };
 
-use crate::utils::{log, prompt, wrap};
+use crate::utils::{log, prompt, wrap, PathExtras, PathType};
 use clap::{Args, Parser};
+use walkdir::WalkDir;
 
 const PROGRAM: &str = "rm";
 
@@ -150,5 +151,12 @@ fn normal_rm(cli: &Cli, p: &PathBuf) {
 }
 
 fn recursive_rm(cli: &Cli, p: &PathBuf) {
- 
+    for entry in WalkDir::new(&p).contents_first(true).into_iter().filter_map(|e| e.ok()) {
+        let path = entry.path();
+        log(cli.verbose, format!("Removing {} {}...", path.type_display(), path.display()));
+        match path.ptype() {
+            PathType::File | PathType::Symlink => wrap(remove_file(path), PROGRAM),
+            PathType::Directory => wrap(remove_dir(path), PROGRAM)
+        }
+    } 
 }
