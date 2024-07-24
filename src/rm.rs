@@ -1,6 +1,10 @@
 use core::fmt;
 use std::{
-    env::args, fs::{remove_dir, remove_file}, os::unix::fs::PermissionsExt, path::{Path, PathBuf}, process::exit
+    env::args,
+    fs::{remove_dir, remove_file},
+    os::unix::fs::PermissionsExt,
+    path::{Path, PathBuf},
+    process::exit,
 };
 
 use crate::utils::{log, prompt, wrap, PathExtras, PathType};
@@ -130,11 +134,14 @@ pub fn main() {
     for p in &cli.files {
         rm(&cli, p);
     }
-
 }
 
 fn rm(cli: &Cli, p: &PathBuf) {
-    if cli.destructive_actions.force && cli.recursive && p == Path::new("/") && !cli.no_preserve_root {
+    if cli.destructive_actions.force
+        && cli.recursive
+        && p == Path::new("/")
+        && !cli.no_preserve_root
+    {
         println!("HEADS UP! You are trying to remove the root directory of your system.\nThis is not possible without no-preserve-root.\n\nYOU ARE NOT REMOVING THE FRENCH LANGUAGE PACK, YOU ARE REMOVING YOUR SYSTEM");
         exit(0);
     };
@@ -147,24 +154,64 @@ fn rm(cli: &Cli, p: &PathBuf) {
 }
 
 fn normal_rm(cli: &Cli, p: &PathBuf) {
-    log(cli.verbose, format!("Removing {} {}...", p.type_display(), p.display()));
+    log(
+        cli.verbose,
+        format!("Removing {} {}...", p.type_display(), p.display()),
+    );
     _ = wrap(remove_file(p), PROGRAM);
 }
 
 fn recursive_rm(cli: &Cli, p: &PathBuf) {
-    for entry in WalkDir::new(&p).contents_first(true).into_iter().filter_map(|e| e.ok()) {
+    for entry in WalkDir::new(&p)
+        .contents_first(true)
+        .into_iter()
+        .filter_map(|e| e.ok())
+    {
         let path = entry.path();
-        log(cli.verbose, format!("Removing {} {}...", path.type_display(), path.display()));
-        dbg!(format!("{}", &path.metadata().unwrap().permissions().mode() & 0o777));
+        log(
+            cli.verbose,
+            format!("Removing {} {}...", path.type_display(), path.display()),
+        );
+        dbg!(format!(
+            "{}",
+            &path.metadata().unwrap().permissions().mode() & 0o777
+        ));
         write_protection(p);
         /*match path.ptype() {
             PathType::File | PathType::Symlink => wrap(remove_file(path), PROGRAM),
             PathType::Directory => wrap(remove_dir(path), PROGRAM)
-        }*/ 
-    } 
+        }*/
+    }
 }
 
-fn write_protection(p: &PathBuf) {
+fn write_protection(p: &PathBuf) -> bool {
+    let perms = get_mode(p);
+    if perms.Owner == 4 && perms.Others == 4 && perms.Group == 4 {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+fn get_mode(p: &PathBuf) -> FilePerm {
     let raw_mode = format!("{:o}", &p.metadata().unwrap().permissions().mode());
-    let perms = raw_mode.split_at(raw_mode.len()-3).1;
+    return {
+        let ints: Vec<u32> = raw_mode
+            .split_at(raw_mode.len() - 3)
+            .1
+            .split("")
+            .filter_map(|f| f.parse::<u32>().ok())
+            .collect();
+        FilePerm {
+            Owner: ints.get(0).unwrap().to_owned(),
+            Group: ints.get(1).unwrap().to_owned(),
+            Others: ints.get(2).unwrap().to_owned(),
+        }
+    };
+}
+
+struct FilePerm {
+    Owner: u32,
+    Group: u32,
+    Others: u32,
 }
