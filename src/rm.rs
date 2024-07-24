@@ -22,7 +22,7 @@ const PROGRAM: &str = "rm";
 struct Cli {
     #[clap(value_parser, num_args = 1.., value_delimiter = ' ', required = true)]
     files: Vec<PathBuf>,
-    // TODO
+    // Done
     #[command(flatten)]
     destructive_actions: DestructiveActions,
     // TODO
@@ -34,7 +34,7 @@ struct Cli {
 
     #[arg(long = "no-preserve-root", help = "Do not treat '/' specially")]
     no_preserve_root: bool,
-    // TODO
+    // Done
     #[arg(
         short = 'R',
         long = "recursive",
@@ -42,7 +42,7 @@ struct Cli {
         short_alias('r')
     )]
     recursive: bool,
-    // TODO
+    // Done
     #[arg(
         short = 'd',
         long = "dir",
@@ -214,6 +214,12 @@ fn normal_rm(cli: &Cli, p: &PathBuf) {
         cli.verbose,
         format!("Removing {} {}...", p.type_display(), p.display()),
     );
+    if cli.rm_empty_dir && p.is_dir() {
+        if p.read_dir().unwrap().next().is_none() {
+                _ = wrap(remove_dir(p), PROGRAM);
+                return;
+        };
+    }
     _ = wrap(remove_file(p), PROGRAM);
 }
 
