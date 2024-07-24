@@ -10,6 +10,8 @@ use std::{
     process::exit,
 };
 
+use walkdir::WalkDir;
+
 use crate::utils::{debug, log, prompt, wrap};
 use clap::{Args, Parser};
 
@@ -455,12 +457,12 @@ fn normal_cp(cli: &Cli, p: &PathBuf) {
     preserve(
         cli,
         p,
-        File::options().write(true).open(destination).unwrap(),
+        &destination,
     );
 }
 
 fn recursive_cp(cli: &Cli, p: &PathBuf) {
-    // Create new root directory 
+    // Create new root directory
     let mut destination = cli.destination.clone();
     if destination.is_dir() && destination.exists() {
         destination.push(p.file_stem().unwrap());
@@ -471,8 +473,8 @@ fn recursive_cp(cli: &Cli, p: &PathBuf) {
         _ = wrap(create_dir_all(destination.parent().unwrap()), PROGRAM);
     };
 
-    for entry in read_dir(p).unwrap() {
-        let path = entry.unwrap().path();
+    for entry in WalkDir::new(&p).into_iter().filter_map(|e| e.ok()) {
+        let path = entry.path();
         let newpath = Path::new(&destination).join(&path.strip_prefix(&p).unwrap());
         if path.is_dir() {
             _ = wrap(create_dir_all(newpath), PROGRAM);
@@ -501,18 +503,22 @@ fn recursive_cp(cli: &Cli, p: &PathBuf) {
         preserve(
             cli,
             p,
-            wrap(File::options()
-                .write(true)
-                .open(destination.clone()), PROGRAM),
+            &destination
         );
     }
 }
 
-fn preserve(cli: &Cli, p: &PathBuf, destination: File) {
+fn preserve(cli: &Cli, p: &PathBuf, dest: &PathBuf) {
     // Just return of the option isnt used!
     if cli.preserve.is_none() && cli.no_preserve.is_none() {
         return ();
     };
+
+    let destination = wrap(if dest.is_file() {
+        File::options().write(true).open(dest)
+    } else {
+        File::open(dest)
+    }, PROGRAM);
 
     let mut preserve_list: Vec<Attributes> = vec![Attributes::Mode];
     // If preserve is specified, overwrite the default

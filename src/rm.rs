@@ -150,5 +150,5 @@ fn normal_rm(cli: &Cli, p: &PathBuf) {
 }
 
 fn recursive_rm(cli: &Cli, p: &PathBuf) {
-     
+ 
 }
