@@ -62,33 +62,26 @@ struct Cli {
 #[derive(Args, Clone, Copy, Debug)]
 #[group(required = false, multiple = false)]
 struct DestructiveActions {
-    // TODO
+    // Done
     #[arg(
         short = 'f',
         long = "force",
         help = "Do not prompt before destructive actions"
     )]
     force: bool,
-    // TODO
+    // Done
     #[arg(
         short = 'i',
         help = "Prompt before destructive actions, opposite of force"
     )]
     interactive: bool,
-    // TODO
-    #[arg(
-        short = 'n',
-        long = "no-clobber",
-        help = "Never do any destructive actions (silently)"
-    )]
-    no_clobber: bool,
-    // TODO
+    // Done
     #[arg(
         short = 'I',
         help = "Prompt once before removing 3 or more files, or if recursive"
     )]
     interactive_recursive: bool,
-    // TODO
+    // Done
     #[arg(
         long = "interactive", 
         help = "Prompt according to the WHEN variable - If no WHEN is specified then always prompt", 
@@ -131,8 +124,68 @@ pub fn main() {
     } else {
         cli = Cli::parse();
     };
+    destructive_handle(&cli, None);
     for p in &cli.files {
         rm(&cli, p);
+    }
+}
+
+fn destructive_handle(cli: &Cli, path: Option<&PathBuf>) {
+    let p: &PathBuf;
+    if let Some(x) = path {
+        p = x;
+    } else {
+        if (cli.destructive_actions.interactive_recursive
+            || cli
+                .destructive_actions
+                .interactive_when
+                .is_some_and(|x| x == When::Once))
+            && (cli.files.len() >= 3 || cli.recursive)
+        {
+            if !prompt(format!("Destructive action: You are about to remove more than 1 file, are you sure about this?"), false) {
+            exit(0);}
+        }
+        return;
+    }
+    if cli.destructive_actions.force || cli.destructive_actions.interactive_when.is_some_and(|x| x == When::Never) {
+        log(
+            cli.verbose,
+            "Force enabled, skipping any checks and just proceeding",
+        );
+        return;
+    }
+
+    if !p.exists() {
+        log(cli.verbose, "File doesnt exist, returning and fail later");
+        return;
+    }
+
+    if write_protection(p) {
+        if !prompt(
+            format!(
+                "Destructive action: {} is write protected. Continue with removal? ",
+                p.display()
+            ),
+            false,
+        ) {
+            exit(0)
+        }
+    }
+    if cli.destructive_actions.interactive
+        || cli
+            .destructive_actions
+            .interactive_when
+            .is_some_and(|x| x == When::Always)
+    {
+        if !prompt(
+            format!(
+                "Destructive action: {} will be removed. Continue? ",
+                p.display()
+            ),
+            false,
+        ) {
+            exit(0)
+        }
     }
 }
 
@@ -145,6 +198,9 @@ fn rm(cli: &Cli, p: &PathBuf) {
         println!("HEADS UP! You are trying to remove the root directory of your system.\nThis is not possible without no-preserve-root.\n\nYOU ARE NOT REMOVING THE FRENCH LANGUAGE PACK, YOU ARE REMOVING YOUR SYSTEM");
         exit(0);
     };
+
+    // Handle destructive options
+    Some(destructive_handle(cli, Some(p)));
 
     if !cli.recursive {
         normal_rm(cli, p);
@@ -176,7 +232,6 @@ fn recursive_rm(cli: &Cli, p: &PathBuf) {
             "{}",
             &path.metadata().unwrap().permissions().mode() & 0o777
         ));
-        write_protection(p);
         /*match path.ptype() {
             PathType::File | PathType::Symlink => wrap(remove_file(path), PROGRAM),
             PathType::Directory => wrap(remove_dir(path), PROGRAM)
