@@ -11,7 +11,7 @@
 | rm    | remove files or directories                       | :white_check_mark: |
 | cp    | copy files or directories                         | :white_check_mark: |
 | mv    | move files or directories                         | :white_check_mark: |
-| ln    | make hard or symbolic links                       | :red_circle:       |
+| ln    | make hard or symbolic links                       | :construction:     |
 | chown | change file owner and group                       | :red_circle:       |
 | chmod | change file permissions                           | :red_circle:       |
 | dd    | convert and copy a file                           | :red_circle:       |
@@ -29,3 +29,4 @@ Please suggest more utilities you'd like to be included!
 | rmdir | 100%    | None!                                     |
 | mv    | 93%     | Update options                            |
 | cp    | 73%     | SELINUX and SMACK missing, Update options |
+| rm    | 90%     | preserve-root                             |

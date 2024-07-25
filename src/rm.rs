@@ -29,7 +29,7 @@ struct Cli {
     #[arg(
         long = "one-file-system",
         help = "When removing a hierarchy recursively, skip any directory that is on a file system different from that of the corresponding command line argument",
-        requires("requires")
+        requires("recursive")
     )]
     one_file_system: bool,
 
