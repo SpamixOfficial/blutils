@@ -12,6 +12,7 @@ mod utils;
 mod mv;
 mod cp;
 mod rm;
+mod ln;
 // End of modules
 
 fn main() {
