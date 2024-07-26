@@ -75,7 +75,8 @@ struct Cli {
     #[arg(
         short = 'r',
         long = "relative",
-        help = "With -s, create links relative to link location"
+        help = "With -s, create links relative to link location",
+        requires("symbolic_link")
     )]
     preserve: bool,
     // Done
@@ -85,7 +86,7 @@ struct Cli {
         help = "Make symbolic links instead of hard linking"
     )]
     symbolic_link: bool,
-    // TODO
+    // Done
     #[arg(
         short = 'S',
         long = "suffix",
@@ -111,7 +112,7 @@ struct Cli {
         conflicts_with("target_directory")
     )]
     no_target_directory: bool,
-    // TODO
+    // Done
     #[arg(short = 'v', long = "verbose", help = "explain whats being done")]
     verbose: bool,
 }
@@ -174,7 +175,7 @@ impl fmt::Display for Choice {
 }
 
 pub fn main() {
-    let mut cli: Cli;
+    let cli: Cli;
     // skip first arg if it happens to be "blutils"
     if args().collect::<Vec<String>>()[0]
         .split("/")
@@ -243,7 +244,7 @@ fn backup(cli: &Cli, p: PathBuf) -> PathBuf {
     return p;
 }
 
-fn destructive_check(cli: &Cli, p: &PathBuf) {
+fn destructive_check(cli: &Cli) {
     let destination = cli.destination.clone();
     if cli.destructive_actions.force {
         return;
@@ -265,7 +266,7 @@ fn destructive_check(cli: &Cli, p: &PathBuf) {
 }
 
 fn ln(cli: &Cli, p: PathBuf) {
-    destructive_check(cli, &p);
+    destructive_check(cli);
     
     let destination = cli.destination.clone();
 
