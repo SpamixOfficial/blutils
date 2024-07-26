@@ -48,14 +48,14 @@ struct Cli {
     // Done
     #[command(flatten)]
     destructive_actions: DestructiveActions,
-    // TODO
+    // Done
     #[arg(
         short = 'L',
         long = "logical",
         help = "Dereference SOURCEs that are symbolic links"
     )]
     logical: bool,
-    // TODO
+    // Done
     #[arg(
         short = 'n',
         long = "no-dereference",
@@ -68,7 +68,6 @@ struct Cli {
         short = 'P',
         long = "physical",
         help = "Make hard links directly to symbolic links",
-        requires("symbolic_link")
     )]
     physical: bool,
     // TODO
@@ -265,10 +264,18 @@ fn destructive_check(cli: &Cli) {
     }
 }
 
-fn ln(cli: &Cli, p: PathBuf) {
+fn ln(cli: &Cli, path: PathBuf) {
     destructive_check(cli);
-    
-    let destination = cli.destination.clone();
+     
+    let mut destination = cli.destination.clone();
+    let mut p = path.clone();
+    if destination.is_dir() || (cli.target_directory && !cli.no_target_directory) {
+        destination = destination.join(p.clone());
+    };
+
+    if p.is_symlink() && cli.logical {
+        p = wrap(read_link(p), PROGRAM);
+    }
 
     if cli.destructive_actions.force {
         log(cli.verbose, "Force was used, removing destination!");
@@ -280,11 +287,12 @@ fn ln(cli: &Cli, p: PathBuf) {
             PROGRAM,
         )
     }
+ 
 
     if cli.symbolic_link {
-        slink(cli, p);
+        slink(cli, p, destination);
     } else {
-        link(cli, p);
+        link(cli, p, destination);
     }
 }
 
@@ -294,18 +302,10 @@ fn ln(cli: &Cli, p: PathBuf) {
 // options which are unique to them.
 //
 // Yk, keep it clean :-)
-fn slink(cli: &Cli, p: PathBuf) {
-    let mut destination = cli.destination.clone();
-    if destination.is_dir() || (cli.target_directory && !cli.no_target_directory) {
-        destination = destination.join(p.clone());
-    };
+fn slink(cli: &Cli, p: PathBuf, destination: PathBuf) {
     wrap(symlink(p, destination), PROGRAM);
 }
 
-fn link(cli: &Cli, p: PathBuf) {
-    let mut destination = cli.destination.clone();
-    if destination.is_dir() || (cli.target_directory && !cli.no_target_directory) {
-        destination = destination.join(p.clone());
-    };
-    wrap(hard_link(p, destination), PROGRAM);
+fn link(cli: &Cli, p: PathBuf, destination: PathBuf) {
+     wrap(hard_link(p, destination), PROGRAM);
 }
