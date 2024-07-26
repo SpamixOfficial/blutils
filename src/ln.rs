@@ -12,7 +12,7 @@ use std::{
 
 use walkdir::WalkDir;
 
-use crate::utils::{debug, log, prompt, wrap};
+use crate::utils::{debug, log, prompt, wrap, PathExtras, PathType};
 use clap::{Args, Parser};
 
 const PROGRAM: &str = "cp";
@@ -29,17 +29,17 @@ struct Cli {
     #[clap(value_parser, required = true)]
     destination: PathBuf,
 
-    //Done
+    // Done
     #[arg(long = "backup", help = "Make a backup of each file")]
     backup_choice: Option<Choice>,
 
-    //Done
+    // Done
     #[arg(
         short = 'b',
         help = "Like --backup but doesnt take an argument (Default option is \"existing\")"
     )]
     backup: bool,
-    //Done
+    // TODO
     #[arg(
         short = 'd',
         long = "directory",
@@ -47,17 +47,17 @@ struct Cli {
         help = "Allow the superuser to attempt to hard link directories (this will probably fail due to system restrictions, even for the superuser)"
     )]
     try_hard_link_dir_sudo: bool,
-    //Done
+    // Done
     #[command(flatten)]
     destructive_actions: DestructiveActions,
-    // Done
+    // TODO
     #[arg(
         short = 'L',
         long = "logical",
         help = "Dereference SOURCEs that are symbolic links"
     )]
     logical: bool,
-    // Done
+    // TODO
     #[arg(
         short = 'n',
         long = "no-dereference",
@@ -65,7 +65,7 @@ struct Cli {
         conflicts_with("dereference")
     )]
     no_dereference: bool,
-    // Done
+    // TODO
     #[arg(
         short = 'P',
         long = "physical",
@@ -73,7 +73,7 @@ struct Cli {
         requires("symbolic-link")
     )]
     physical: bool,
-    // Done
+    // TODO
     #[arg(
         short = 'r',
         long = "relative",
@@ -87,7 +87,7 @@ struct Cli {
         help = "Make symbolic links instead of hard linking"
     )]
     symbolic_link: bool,
-    // Done
+    // TODO
     #[arg(
         short = 'S',
         long = "suffix",
@@ -95,7 +95,7 @@ struct Cli {
     )]
     suffix: Option<String>,
 
-    // Done
+    // TODO
     #[arg(
         short = 't',
         long = "target-directory",
@@ -103,7 +103,7 @@ struct Cli {
     )]
     target_directory: bool,
 
-    // Done
+    // TODO
     #[arg(
         short = 'T',
         long = "no-target-directory",
@@ -240,8 +240,11 @@ fn backup(cli: &Cli, p: PathBuf) -> PathBuf {
 }
 
 fn destructive_check(cli: &Cli) {
+    if cli.destructive_actions.force {
+        return;
+    }
     if cli.destructive_actions.no_clobber && cli.destination.exists() {
-        eprintln!("mv: Error: About to commit destructive action - not allowed, exiting!");
+        eprintln!("ln: Error: About to commit destructive action - not allowed, exiting!");
         exit(1);
     } else if cli.destination.exists() && cli.destructive_actions.interactive {
         if !prompt(
@@ -256,4 +259,37 @@ fn destructive_check(cli: &Cli) {
     }
 }
 
-fn ln(cli: &Cli, p: PathBuf) {}
+fn ln(cli: &Cli, p: PathBuf) {
+    destructive_check(cli);
+
+    if cli.destructive_actions.force {
+        log(cli.verbose, "Force was used, removing destination!");
+        wrap(
+            match p.as_path().ptype() {
+                PathType::File | PathType::Symlink => remove_file(&cli.destination),
+                _ => remove_dir_all(&cli.destination),
+            },
+            PROGRAM,
+        )
+    }
+
+    if cli.symbolic_link {
+        slink(cli, p);
+    } else {
+        link(cli, p);
+    }
+}
+
+// Function for handling symbolic links
+//
+// Hard and Symb links are split into 2 different functons because they both have some different
+// options which are unique to them.
+//
+// Yk, keep it clean :-)
+fn slink(cli: &Cli, p: PathBuf) {
+    wrap(symlink(p, &cli.destination), PROGRAM);
+}
+
+fn link(cli: &Cli, p: PathBuf) {
+    wrap(hard_link(p, &cli.destination), PROGRAM);
+}

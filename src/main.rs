@@ -33,6 +33,7 @@ fn main() {
         "mv" => mv::main(),
         "cp" => cp::main(),
         "rm" => rm::main(),
+        "ln" => ln::main(),
         _ => help(),
     }
 }
