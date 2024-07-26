@@ -10,15 +10,15 @@ use std::{
     process::exit,
 };
 
-use crate::utils::{log, prompt, wrap, PathExtras, PathType};
+use crate::utils::{is_sudo, log, prompt, wrap, PathExtras, PathType};
 use clap::{Args, Parser};
 
-const PROGRAM: &str = "cp";
+const PROGRAM: &str = "ln";
 
 #[derive(Parser, Debug, Clone)]
 #[command(
     version,
-    about = "Copy SOURCE to (or into) DESTINATION",
+    about = "Link files and directories",
     author = "Alexander Hübner"
 )]
 struct Cli {
@@ -176,6 +176,7 @@ impl fmt::Display for Choice {
 pub fn main() {
     let cli: Cli;
     // skip first arg if it happens to be "blutils"
+    is_sudo();
     if args().collect::<Vec<String>>()[0]
         .split("/")
         .last()

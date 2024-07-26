@@ -1,6 +1,7 @@
 use std::{
     any::Any, fmt::Display, fs::File, io::{Error, Read, Result}, path::Path, process::exit
 };
+use libc::getuid;
 
 pub fn log<T: Display>(verbose: bool, message: T) {
     if verbose {
@@ -12,6 +13,16 @@ pub fn debug<T: Display>(debug: bool, message: T) {
     if debug {
         println!("[debug] {}", message)
     }
+}
+
+pub fn is_sudo() -> bool {
+    unsafe {
+        if getuid() != 0 {
+            return false
+        } else {
+            return true;
+        };
+    };
 }
 
 // Stolen from https://stackoverflow.com/a/42773525
