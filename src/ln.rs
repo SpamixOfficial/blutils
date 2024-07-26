@@ -25,7 +25,7 @@ struct Cli {
     #[clap(value_parser, required = true)]
     source: Vec<PathBuf>,
     #[clap(value_parser, required = true)]
-    destination: Option<PathBuf>,
+    destination: PathBuf,
 
     // Done
     #[arg(long = "backup", help = "Make a backup of each file")]
@@ -196,7 +196,7 @@ pub fn main() {
 
 fn backup(cli: &Cli, p: PathBuf) -> PathBuf {
     // Checking for options and if the file exists
-    let destination = cli.destination.clone().unwrap_or(p.clone());
+    let destination = cli.destination.clone();
     if (!cli.backup && !cli.backup_choice.is_some()) || destination.try_exists().is_err() {
         return p;
     };
@@ -244,7 +244,7 @@ fn backup(cli: &Cli, p: PathBuf) -> PathBuf {
 }
 
 fn destructive_check(cli: &Cli, p: &PathBuf) {
-    let destination = cli.destination.clone().unwrap_or(p.to_owned());
+    let destination = cli.destination.clone();
     if cli.destructive_actions.force {
         return;
     }
@@ -267,7 +267,7 @@ fn destructive_check(cli: &Cli, p: &PathBuf) {
 fn ln(cli: &Cli, p: PathBuf) {
     destructive_check(cli, &p);
     
-    let destination = cli.destination.clone().unwrap_or(p.clone());
+    let destination = cli.destination.clone();
 
     if cli.destructive_actions.force {
         log(cli.verbose, "Force was used, removing destination!");
@@ -294,7 +294,7 @@ fn ln(cli: &Cli, p: PathBuf) {
 //
 // Yk, keep it clean :-)
 fn slink(cli: &Cli, p: PathBuf) {
-    let mut destination = cli.destination.clone().unwrap_or(p.clone());
+    let mut destination = cli.destination.clone();
     if destination.is_dir() || (cli.target_directory && !cli.no_target_directory) {
         destination = destination.join(p.clone());
     };
@@ -302,7 +302,7 @@ fn slink(cli: &Cli, p: PathBuf) {
 }
 
 fn link(cli: &Cli, p: PathBuf) {
-    let mut destination = cli.destination.clone().unwrap_or(p.clone());
+    let mut destination = cli.destination.clone();
     if destination.is_dir() || (cli.target_directory && !cli.no_target_directory) {
         destination = destination.join(p.clone());
     };
