@@ -10,9 +10,7 @@ use std::{
     process::exit,
 };
 
-use walkdir::WalkDir;
-
-use crate::utils::{debug, log, prompt, wrap, PathExtras, PathType};
+use crate::utils::{log, prompt, wrap, PathExtras, PathType};
 use clap::{Args, Parser};
 
 const PROGRAM: &str = "cp";
@@ -25,9 +23,9 @@ const PROGRAM: &str = "cp";
 )]
 struct Cli {
     #[clap(value_parser, required = true)]
-    source: PathBuf,
+    source: Vec<PathBuf>,
     #[clap(value_parser, required = true)]
-    destination: PathBuf,
+    destination: Option<PathBuf>,
 
     // Done
     #[arg(long = "backup", help = "Make a backup of each file")]
@@ -62,7 +60,7 @@ struct Cli {
         short = 'n',
         long = "no-dereference",
         help = "Never follow symbolic links in SOURCE",
-        conflicts_with("dereference")
+        conflicts_with("logical")
     )]
     no_dereference: bool,
     // TODO
@@ -70,7 +68,7 @@ struct Cli {
         short = 'P',
         long = "physical",
         help = "Make hard links directly to symbolic links",
-        requires("symbolic-link")
+        requires("symbolic_link")
     )]
     physical: bool,
     // TODO
@@ -95,19 +93,22 @@ struct Cli {
     )]
     suffix: Option<String>,
 
-    // TODO
+    // Done
     #[arg(
         short = 't',
         long = "target-directory",
-        help = "Treat destination as a directory"
+        help = "Treat destination as a directory",
+        conflicts_with("no_target_directory")
     )]
     target_directory: bool,
 
-    // TODO
+    // Done
+    // Default behaviour so no need to implement really!
     #[arg(
         short = 'T',
         long = "no-target-directory",
-        help = "Treat destination as a normal file"
+        help = "Treat destination as a normal file",
+        conflicts_with("target_directory")
     )]
     no_target_directory: bool,
     // TODO
@@ -134,7 +135,7 @@ struct DestructiveActions {
     interactive: bool,
     // Done
     #[arg(
-        short = 'n',
+        short = 'N',
         long = "no-clobber",
         help = "Never do any destructive actions (silently)"
     )]
@@ -173,7 +174,7 @@ impl fmt::Display for Choice {
 }
 
 pub fn main() {
-    let cli: Cli;
+    let mut cli: Cli;
     // skip first arg if it happens to be "blutils"
     if args().collect::<Vec<String>>()[0]
         .split("/")
@@ -185,20 +186,23 @@ pub fn main() {
     } else {
         cli = Cli::parse();
     };
-    let mut p = cli.source.clone();
-    log(cli.verbose, format!("Linking {}", p.display()));
-    p = backup(&cli, p);
-    ln(&cli, p);
+
+    for mut p in cli.source.clone() {
+        log(cli.verbose, format!("Linking {}", p.display()));
+        p = backup(&cli, p);
+        ln(&cli, p);
+    }
 }
 
 fn backup(cli: &Cli, p: PathBuf) -> PathBuf {
     // Checking for options and if the file exists
-    if (!cli.backup && !cli.backup_choice.is_some()) || cli.destination.try_exists().is_err() {
+    let destination = cli.destination.clone().unwrap_or(p.clone());
+    if (!cli.backup && !cli.backup_choice.is_some()) || destination.try_exists().is_err() {
         return p;
     };
     let p_clone = p.clone();
     let suffix = cli.suffix.clone().unwrap_or(String::from("~"));
-    let mut backup_path = format!("{}{}", cli.destination.display(), suffix);
+    let mut backup_path = format!("{}{}", destination.display(), suffix);
     let choice = cli.backup_choice.unwrap_or(Choice::Existing);
 
     log(
@@ -212,7 +216,7 @@ fn backup(cli: &Cli, p: PathBuf) -> PathBuf {
         } else {
             let mut i = 0;
             loop {
-                backup_path = format!("{}{}{}", cli.destination.display(), suffix, i);
+                backup_path = format!("{}{}{}", destination.display(), suffix, i);
                 if !Path::new(&backup_path).exists() {
                     _ = wrap(fs::copy(p_clone, backup_path), PROGRAM);
                     log(cli.verbose, "Backup successful");
@@ -224,7 +228,7 @@ fn backup(cli: &Cli, p: PathBuf) -> PathBuf {
     } else if choice == Choice::Numbered || choice == Choice::T {
         let mut i = 0;
         loop {
-            backup_path = format!("{}{}{}", cli.destination.display(), suffix, i);
+            backup_path = format!("{}{}{}", destination.display(), suffix, i);
             if !Path::new(&backup_path).exists() {
                 _ = wrap(fs::copy(p_clone, backup_path), PROGRAM);
                 log(cli.verbose, "Backup successful");
@@ -239,18 +243,19 @@ fn backup(cli: &Cli, p: PathBuf) -> PathBuf {
     return p;
 }
 
-fn destructive_check(cli: &Cli) {
+fn destructive_check(cli: &Cli, p: &PathBuf) {
+    let destination = cli.destination.clone().unwrap_or(p.to_owned());
     if cli.destructive_actions.force {
         return;
     }
-    if cli.destructive_actions.no_clobber && cli.destination.exists() {
+    if cli.destructive_actions.no_clobber && destination.exists() {
         eprintln!("ln: Error: About to commit destructive action - not allowed, exiting!");
         exit(1);
-    } else if cli.destination.exists() && cli.destructive_actions.interactive {
+    } else if destination.exists() && cli.destructive_actions.interactive {
         if !prompt(
             format!(
                 "Destructive action: {} exists and will be overwritten. Continue? ",
-                cli.destination.display()
+                destination.display()
             ),
             false,
         ) {
@@ -260,14 +265,16 @@ fn destructive_check(cli: &Cli) {
 }
 
 fn ln(cli: &Cli, p: PathBuf) {
-    destructive_check(cli);
+    destructive_check(cli, &p);
+    
+    let destination = cli.destination.clone().unwrap_or(p.clone());
 
     if cli.destructive_actions.force {
         log(cli.verbose, "Force was used, removing destination!");
         wrap(
             match p.as_path().ptype() {
-                PathType::File | PathType::Symlink => remove_file(&cli.destination),
-                _ => remove_dir_all(&cli.destination),
+                PathType::File | PathType::Symlink => remove_file(&destination),
+                _ => remove_dir_all(&destination),
             },
             PROGRAM,
         )
@@ -287,9 +294,17 @@ fn ln(cli: &Cli, p: PathBuf) {
 //
 // Yk, keep it clean :-)
 fn slink(cli: &Cli, p: PathBuf) {
-    wrap(symlink(p, &cli.destination), PROGRAM);
+    let mut destination = cli.destination.clone().unwrap_or(p.clone());
+    if destination.is_dir() || (cli.target_directory && !cli.no_target_directory) {
+        destination = destination.join(p.clone());
+    };
+    wrap(symlink(p, destination), PROGRAM);
 }
 
 fn link(cli: &Cli, p: PathBuf) {
-    wrap(hard_link(p, &cli.destination), PROGRAM);
+    let mut destination = cli.destination.clone().unwrap_or(p.clone());
+    if destination.is_dir() || (cli.target_directory && !cli.no_target_directory) {
+        destination = destination.join(p.clone());
+    };
+    wrap(hard_link(p, destination), PROGRAM);
 }
