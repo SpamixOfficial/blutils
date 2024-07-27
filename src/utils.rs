@@ -1,5 +1,5 @@
 use std::{
-    any::Any, fmt::Display, fs::File, io::{Error, Read, Result}, path::Path, process::exit
+    any::Any, fmt::Display, io::{Error, Read, Result}, path::Path, process::exit
 };
 use libc::getuid;
 

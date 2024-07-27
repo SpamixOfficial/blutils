@@ -1,17 +1,16 @@
 use core::fmt;
 use std::{
     env::args,
-    fs::{
-        self, create_dir, create_dir_all, hard_link, metadata, read_dir, read_link, remove_dir_all,
-        remove_file, File, FileTimes,
-    },
+    ffi::CString,
+    fs::{self, hard_link, read_link, remove_dir_all, remove_file},
     os::unix::fs::symlink,
     path::{Path, PathBuf},
     process::exit,
 };
 
-use crate::utils::{is_sudo, log, prompt, wrap, PathExtras, PathType};
+use crate::utils::{is_sudo, libc_wrap, log, prompt, wrap, PathExtras, PathType};
 use clap::{Args, Parser};
+use libc::{linkat, AT_FDCWD};
 
 const PROGRAM: &str = "ln";
 
@@ -37,7 +36,7 @@ struct Cli {
         help = "Like --backup but doesnt take an argument (Default option is \"existing\")"
     )]
     backup: bool,
-    // TODO
+    // Done
     #[arg(
         short = 'd',
         long = "directory",
@@ -63,11 +62,12 @@ struct Cli {
         conflicts_with("logical")
     )]
     no_dereference: bool,
-    // TODO
+    // Done
     #[arg(
         short = 'P',
         long = "physical",
         help = "Make hard links directly to symbolic links",
+        conflicts_with("symbolic_link")
     )]
     physical: bool,
     // TODO
@@ -267,7 +267,7 @@ fn destructive_check(cli: &Cli) {
 
 fn ln(cli: &Cli, path: PathBuf) {
     destructive_check(cli);
-     
+
     let mut destination = cli.destination.clone();
     let mut p = path.clone();
     if destination.is_dir() || (cli.target_directory && !cli.no_target_directory) {
@@ -288,7 +288,6 @@ fn ln(cli: &Cli, path: PathBuf) {
             PROGRAM,
         )
     }
- 
 
     if cli.symbolic_link {
         slink(cli, p, destination);
@@ -308,5 +307,27 @@ fn slink(cli: &Cli, p: PathBuf, destination: PathBuf) {
 }
 
 fn link(cli: &Cli, p: PathBuf, destination: PathBuf) {
-     wrap(hard_link(p, destination), PROGRAM);
+    if p.is_dir() && !cli.try_hard_link_dir_sudo && !is_sudo() {
+        eprintln!("ln: Error: Can't hard link directories!");
+        exit(1);
+    };
+
+    if cli.physical && !cli.logical {
+        let source = CString::new(p.to_str().to_owned().unwrap().to_string()).unwrap();
+        let dest = CString::new(destination.to_str().to_owned().unwrap().to_string()).unwrap();
+        unsafe {
+            wrap(
+                libc_wrap(linkat(
+                    AT_FDCWD,
+                    source.as_ptr(),
+                    AT_FDCWD,
+                    dest.as_ptr(),
+                    0,
+                )),
+                PROGRAM,
+            )
+        };
+    } else {
+        wrap(hard_link(p, destination), PROGRAM)
+    };
 }
