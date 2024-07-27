@@ -8,6 +8,8 @@ use std::{
     process::exit,
 };
 
+//use pathdiff::diff_paths;
+
 use crate::utils::{is_sudo, libc_wrap, log, prompt, wrap, PathExtras, PathType};
 use clap::{Args, Parser};
 use libc::{linkat, AT_FDCWD};
@@ -71,13 +73,13 @@ struct Cli {
     )]
     physical: bool,
     // TODO
-    #[arg(
+    /*#[arg(
         short = 'r',
         long = "relative",
         help = "With -s, create links relative to link location",
         requires("symbolic_link")
     )]
-    preserve: bool,
+    relative: bool,*/
     // Done
     #[arg(
         short = 's',
@@ -290,7 +292,11 @@ fn ln(cli: &Cli, path: PathBuf) {
     }
 
     if cli.symbolic_link {
-        slink(cli, p, destination);
+        /*if cli.relative {
+            dbg!(&destination, &p);
+            dbg!(diff_paths(&p, &destination).unwrap());
+        };*/
+        slink(p, destination);
     } else {
         link(cli, p, destination);
     }
@@ -302,7 +308,7 @@ fn ln(cli: &Cli, path: PathBuf) {
 // options which are unique to them.
 //
 // Yk, keep it clean :-)
-fn slink(cli: &Cli, p: PathBuf, destination: PathBuf) {
+fn slink(p: PathBuf, destination: PathBuf) {
     wrap(symlink(p, destination), PROGRAM);
 }
 
