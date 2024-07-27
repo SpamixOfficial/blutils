@@ -36,6 +36,10 @@ cargo run -- rmdir
 cargo run -- mv
 # cp 
 cargo run -- cp
+# ln
+cargo run -- ln
+# rm
+cargo run -- rm
 ```
 *NOTE: All of these commands do what they are supposed to do. This can lead to ***destructive*** actions.*
 
