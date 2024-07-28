@@ -20,62 +20,62 @@ struct Cli {
     group: String,
     #[clap(value_parser, required = true)]
     file: PathBuf,
-    // TODO
-	#[arg(
+    // Done
+    #[arg(
         short = 'c',
         long = "changes",
         help = "Like verbose but only report when changes are done"
     )]
     changes: bool,
-    // TODO
-	#[arg(
+    // Done
+    #[arg(
         short = 'f',
         long = "silent",
         alias = "quiet",
         help = "Suppress most error messages"
     )]
     silent: bool,
-    // TODO
-	#[arg(short = 'v', long = "verbose", help = "explain whats being done")]
+    // Done
+    #[arg(short = 'v', long = "verbose", help = "explain whats being done")]
     verbose: bool,
     // TODO
-	#[arg(
+    #[arg(
         long = "dereference",
         help = "Affect the referent of each symbolic link (this is the default), rather than the symbolic link itself"
     )]
     dereference: bool,
     // TODO
-	#[arg(
+    #[arg(
         long = "no-dereference",
         help = "Affect the symbolic link instead of the referred file"
     )]
     no_dereference: bool,
     // TODO
-	#[arg(
+    #[arg(
         long = "from",
         help = "Change  the  ownership  of each file only if its current owner and/or group match those specified here. Either may be omitted, in which case a match is not required for the omitted attribute"
     )]
     from: Option<String>,
     // TODO
-	#[arg(
+    #[arg(
         long = "no-preserve-root",
         help = "Dont treat '/' specially (the default)"
     )]
     no_preserve_root: bool,
     // TODO
-	#[arg(long = "preserve-root", help = "Fail to operate on '/'")]
+    #[arg(long = "preserve-root", help = "Fail to operate on '/'")]
     preserve_root: bool,
     // TODO
-	#[arg(
+    #[arg(
         long = "reference",
         help = "Use REFERENCE ownership rather than specifying values, REFERENCE is always dereferenced if a symbolic link"
     )]
     reference: Option<PathBuf>,
     // TODO
-	#[arg(short = 'R', long = "recursive", help = "Operate recursively")]
+    #[arg(short = 'R', long = "recursive", help = "Operate recursively")]
     recursive: bool,
     // TODO
-	#[command(flatten)]
+    #[command(flatten)]
     recursive_actions: RecursiveActions,
 }
 
@@ -109,7 +109,9 @@ pub fn main() {
     } else {
         cli = Cli::parse();
     };
-
+    if cli.silent {
+        cli.verbose = false;
+    }
     chown(&cli, cli.clone().file);
 }
 
@@ -140,6 +142,14 @@ fn chown(cli: &Cli, p: PathBuf) {
                 gid = Some(group_entry.gr_gid);
             }
         }
+        log(
+            cli.verbose && gid.is_none() && uid.is_none() && !cli.changes,
+            "Both gid and uid is none, chown has no effect!",
+        );
     };
+    log(
+        cli.verbose && (gid.is_some() || uid.is_some()),
+        format!("Changing ownership of {}", p.display()),
+    );
     wrap(unix_chown(destination, uid, gid), PROGRAM);
 }
