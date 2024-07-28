@@ -20,67 +20,78 @@ struct Cli {
     group: String,
     #[clap(value_parser, required = true)]
     file: PathBuf,
-    #[arg(
+    // TODO
+	#[arg(
         short = 'c',
         long = "changes",
         help = "Like verbose but only report when changes are done"
     )]
     changes: bool,
-    #[arg(
+    // TODO
+	#[arg(
         short = 'f',
         long = "silent",
         alias = "quiet",
         help = "Suppress most error messages"
     )]
     silent: bool,
-    #[arg(short = 'v', long = "verbose", help = "explain whats being done")]
+    // TODO
+	#[arg(short = 'v', long = "verbose", help = "explain whats being done")]
     verbose: bool,
-    #[arg(
+    // TODO
+	#[arg(
         long = "dereference",
         help = "Affect the referent of each symbolic link (this is the default), rather than the symbolic link itself"
     )]
     dereference: bool,
-    #[arg(
+    // TODO
+	#[arg(
         long = "no-dereference",
         help = "Affect the symbolic link instead of the referred file"
     )]
     no_dereference: bool,
-    #[arg(
+    // TODO
+	#[arg(
         long = "from",
         help = "Change  the  ownership  of each file only if its current owner and/or group match those specified here. Either may be omitted, in which case a match is not required for the omitted attribute"
     )]
     from: Option<String>,
-    #[arg(
+    // TODO
+	#[arg(
         long = "no-preserve-root",
         help = "Dont treat '/' specially (the default)"
     )]
     no_preserve_root: bool,
-    #[arg(long = "preserve-root", help = "Fail to operate on '/'")]
+    // TODO
+	#[arg(long = "preserve-root", help = "Fail to operate on '/'")]
     preserve_root: bool,
-    #[arg(
+    // TODO
+	#[arg(
         long = "reference",
         help = "Use REFERENCE ownership rather than specifying values, REFERENCE is always dereferenced if a symbolic link"
     )]
     reference: Option<PathBuf>,
-    #[arg(short = 'R', long = "recursive", help = "Operate recursively")]
+    // TODO
+	#[arg(short = 'R', long = "recursive", help = "Operate recursively")]
     recursive: bool,
-    #[command(flatten)]
+    // TODO
+	#[command(flatten)]
     recursive_actions: RecursiveActions,
 }
 
 #[derive(Args, Clone, Copy, Debug)]
 #[group(required = false, multiple = false)]
 struct RecursiveActions {
-    // Done
+    // TODO
     #[arg(
         short = 'H',
         help = "If a command line argument is a symbolic link to a directory, traverse it"
     )]
     recursive_dereference: bool,
-    // Done
+    // TODO
     #[arg(short = 'L', help = "Traverse every symbolic link found")]
     recursive_traverse: bool,
-    // Done
+    // TODO
     #[arg(short = 'P', help = "Never traverse any symbolic links")]
     recursive_never: bool,
 }
