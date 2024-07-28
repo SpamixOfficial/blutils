@@ -1,4 +1,4 @@
-use std::env::args;
+use std::{env::args, path::PathBuf};
 
 use crate::utils::{is_sudo, libc_wrap, log, prompt, wrap, PathExtras, PathType};
 use clap::{Args, Parser};
@@ -19,7 +19,7 @@ struct Cli {
     file: PathBuf,
     #[arg(short = 'c', long = "changes", help = "Like verbose but only report when changes are done")]
     changes: bool,
-    #[arg(short = 'f', long = "silent", long_alias = "quiet", help = "Suppress most error messages")]
+    #[arg(short = 'f', long = "silent", alias = "quiet", help = "Suppress most error messages")]
     silent: bool,
     #[arg(short = 'v', long = "verbose", help = "explain whats being done")]
     verbose: bool,
@@ -80,4 +80,6 @@ pub fn main() {
     }; 
 }
 
+fn chown(cli: &Cli, p: PathBuf) {
 
+}
