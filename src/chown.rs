@@ -1,20 +1,23 @@
-use std::{env::args, path::PathBuf};
+use std::{env::args, ffi::CString, path::PathBuf};
 
 use crate::utils::{is_sudo, libc_wrap, log, prompt, wrap, PathExtras, PathType};
 use clap::{Args, Parser};
-use libc::{linkat, AT_FDCWD};
+use libc::{getgrnam, getpwnam, getuid};
+use std::os::unix::fs::chown as unix_chown;
 
 const PROGRAM: &str = "chown";
 
 #[derive(Parser, Debug, Clone)]
 #[command(
     version,
-    about = "Change file (or directory) owner and group",
+    about = "Change file (or directory) owner and group\nPass _ (underscore) instead of owner/group to leave it unchanged!",
     author = "Alexander Hübner"
 )]
 struct Cli {
     #[clap(value_parser)]
     owner: String,
+    #[clap(value_parser)]
+    group: String,
     #[clap(value_parser, required = true)]
     file: PathBuf,
     #[arg(
@@ -83,7 +86,7 @@ struct RecursiveActions {
 }
 
 pub fn main() {
-    let cli: Cli;
+    let mut cli: Cli;
     // skip first arg if it happens to be "blutils"
     if args().collect::<Vec<String>>()[0]
         .split("/")
@@ -95,6 +98,37 @@ pub fn main() {
     } else {
         cli = Cli::parse();
     };
+
+    chown(&cli, cli.clone().file);
 }
 
-fn chown(cli: &Cli, p: PathBuf) {}
+fn chown(cli: &Cli, p: PathBuf) {
+    let destination = p.clone();
+    let uid: Option<u32>;
+    let gid: Option<u32>;
+    unsafe {
+        if cli.owner == String::from("_") {
+            uid = None;
+        } else {
+            if let Ok(usr_id) = cli.owner.parse::<u32>() {
+                uid = Some(usr_id);
+            } else {
+                let owner = CString::new(cli.clone().owner).unwrap();
+                let pw_entry = getpwnam(owner.as_ptr()).read();
+                uid = Some(pw_entry.pw_uid);
+            }
+        };
+        if cli.group == String::from("_") {
+            gid = None;
+        } else {
+            if let Ok(grp_id) = cli.group.parse::<u32>() {
+                gid = Some(grp_id);
+            } else {
+                let group = CString::new(cli.clone().group).unwrap();
+                let group_entry = getgrnam(group.as_ptr()).read();
+                gid = Some(group_entry.gr_gid);
+            }
+        }
+    };
+    wrap(unix_chown(destination, uid, gid), PROGRAM);
+}

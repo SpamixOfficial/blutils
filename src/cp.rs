@@ -2,7 +2,7 @@ use core::fmt;
 use std::{
     env::args,
     fs::{
-        self, create_dir, create_dir_all, hard_link, metadata, read_dir, read_link, remove_dir_all,
+        self, create_dir, create_dir_all, hard_link, metadata, read_link, remove_dir_all,
         remove_file, File, FileTimes,
     },
     os::unix::fs::symlink,
