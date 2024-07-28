@@ -13,6 +13,7 @@ mod mv;
 mod cp;
 mod rm;
 mod ln;
+mod chown;
 // End of modules
 
 fn main() {
@@ -34,6 +35,7 @@ fn main() {
         "cp" => cp::main(),
         "rm" => rm::main(),
         "ln" => ln::main(),
+        "chown" => chown::main(),
         _ => help(),
     }
 }

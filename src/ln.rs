@@ -178,7 +178,6 @@ impl fmt::Display for Choice {
 pub fn main() {
     let cli: Cli;
     // skip first arg if it happens to be "blutils"
-    is_sudo();
     if args().collect::<Vec<String>>()[0]
         .split("/")
         .last()
