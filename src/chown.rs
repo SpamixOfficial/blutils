@@ -13,27 +13,51 @@ const PROGRAM: &str = "chown";
     author = "Alexander Hübner"
 )]
 struct Cli {
-    #[clap(value_parser, required_if_eq("reference", "None"))]
+    #[clap(value_parser)]
     owner: String,
     #[clap(value_parser, required = true)]
     file: PathBuf,
-    #[arg(short = 'c', long = "changes", help = "Like verbose but only report when changes are done")]
+    #[arg(
+        short = 'c',
+        long = "changes",
+        help = "Like verbose but only report when changes are done"
+    )]
     changes: bool,
-    #[arg(short = 'f', long = "silent", alias = "quiet", help = "Suppress most error messages")]
+    #[arg(
+        short = 'f',
+        long = "silent",
+        alias = "quiet",
+        help = "Suppress most error messages"
+    )]
     silent: bool,
     #[arg(short = 'v', long = "verbose", help = "explain whats being done")]
     verbose: bool,
-    #[arg(long = "dereference", help = "Affect the referent of each symbolic link (this is the default), rather than the symbolic link itself")]
+    #[arg(
+        long = "dereference",
+        help = "Affect the referent of each symbolic link (this is the default), rather than the symbolic link itself"
+    )]
     dereference: bool,
-    #[arg(short = 'h', long = "no-dereference", help = "Affect the symbolic link instead of the referred file")]
+    #[arg(
+        long = "no-dereference",
+        help = "Affect the symbolic link instead of the referred file"
+    )]
     no_dereference: bool,
-    #[arg(long = "from", help = "Change  the  ownership  of each file only if its current owner and/or group match those specified here. Either may be omitted, in which case a match is not required for the omitted attribute")]
+    #[arg(
+        long = "from",
+        help = "Change  the  ownership  of each file only if its current owner and/or group match those specified here. Either may be omitted, in which case a match is not required for the omitted attribute"
+    )]
     from: Option<String>,
-    #[arg(long = "no-preserve-root", help = "Dont treat '/' specially (the default)")]
+    #[arg(
+        long = "no-preserve-root",
+        help = "Dont treat '/' specially (the default)"
+    )]
     no_preserve_root: bool,
     #[arg(long = "preserve-root", help = "Fail to operate on '/'")]
     preserve_root: bool,
-    #[arg(long = "reference", help = "Use REFERENCE ownership rather than specifying values, REFERENCE is always dereferenced if a symbolic link")]
+    #[arg(
+        long = "reference",
+        help = "Use REFERENCE ownership rather than specifying values, REFERENCE is always dereferenced if a symbolic link"
+    )]
     reference: Option<PathBuf>,
     #[arg(short = 'R', long = "recursive", help = "Operate recursively")]
     recursive: bool,
@@ -51,19 +75,12 @@ struct RecursiveActions {
     )]
     recursive_dereference: bool,
     // Done
-    #[arg(
-        short = 'L',
-        help = "Traverse every symbolic link found"
-    )]
+    #[arg(short = 'L', help = "Traverse every symbolic link found")]
     recursive_traverse: bool,
     // Done
-    #[arg(
-        short = 'P',
-        help = "Never traverse any symbolic links"
-    )]
+    #[arg(short = 'P', help = "Never traverse any symbolic links")]
     recursive_never: bool,
 }
-
 
 pub fn main() {
     let cli: Cli;
@@ -77,9 +94,7 @@ pub fn main() {
         cli = Cli::parse_from(args().skip(1));
     } else {
         cli = Cli::parse();
-    }; 
+    };
 }
 
-fn chown(cli: &Cli, p: PathBuf) {
-
-}
+fn chown(cli: &Cli, p: PathBuf) {}
