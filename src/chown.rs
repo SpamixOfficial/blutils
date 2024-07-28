@@ -1,9 +1,10 @@
 use std::{env::args, ffi::CString, path::PathBuf};
 
-use crate::utils::{is_sudo, libc_wrap, log, prompt, wrap, PathExtras, PathType};
+use crate::utils::{libc_wrap, log, prompt, wrap, PathExtras, PathType};
 use clap::{Args, Parser};
-use libc::{getgrnam, getpwnam, getuid};
+use libc::{getgrnam, getpwnam};
 use std::os::unix::fs::chown as unix_chown;
+use std::os::unix::fs::lchown as unix_lchown;
 
 const PROGRAM: &str = "chown";
 
@@ -38,16 +39,18 @@ struct Cli {
     // Done
     #[arg(short = 'v', long = "verbose", help = "explain whats being done")]
     verbose: bool,
-    // TODO
+    // Done
     #[arg(
         long = "dereference",
-        help = "Affect the referent of each symbolic link (this is the default), rather than the symbolic link itself"
+        help = "Affect the referent of each symbolic link (this is the default), rather than the symbolic link itself",
+        conflicts_with("no_dereference")
     )]
     dereference: bool,
-    // TODO
+    // Done
     #[arg(
         long = "no-dereference",
-        help = "Affect the symbolic link instead of the referred file"
+        help = "Affect the symbolic link instead of the referred file",
+        conflicts_with("dereference")
     )]
     no_dereference: bool,
     // TODO
@@ -151,5 +154,9 @@ fn chown(cli: &Cli, p: PathBuf) {
         cli.verbose && (gid.is_some() || uid.is_some()),
         format!("Changing ownership of {}", p.display()),
     );
-    wrap(unix_chown(destination, uid, gid), PROGRAM);
+    if cli.no_dereference {
+        wrap(unix_lchown(destination, uid, gid), PROGRAM);
+    } else {
+        wrap(unix_chown(destination, uid, gid), PROGRAM);
+    }
 }
