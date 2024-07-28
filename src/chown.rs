@@ -1,8 +1,10 @@
 use std::{env::args, ffi::CString, path::PathBuf};
 
 use crate::utils::{libc_wrap, log, prompt, wrap, PathExtras, PathType};
+use clap::builder::Str;
 use clap::{Args, Parser};
 use libc::{getgrnam, getpwnam};
+use std::os::linux::fs::MetadataExt;
 use std::os::unix::fs::chown as unix_chown;
 use std::os::unix::fs::lchown as unix_lchown;
 
@@ -11,16 +13,14 @@ const PROGRAM: &str = "chown";
 #[derive(Parser, Debug, Clone)]
 #[command(
     version,
-    about = "Change file (or directory) owner and group\nPass _ (underscore) instead of owner/group to leave it unchanged!",
+    about = "Change file (or directory) owner and group\nOWNER and GROUP can either be a name or a numeric GID/UID.\nPass _ (underscore) instead of owner/group to leave it unchanged!\n\nTo use the reference option, just pass _ (underscore) for OWNER:GROUP",
     author = "Alexander Hübner"
 )]
 struct Cli {
-    #[clap(value_parser)]
-    owner: String,
-    #[clap(value_parser)]
-    group: String,
+    #[clap(value_parser, value_names(["OWNER:GROUP"]))]
+    own_group: String,
     #[clap(value_parser, required = true)]
-    file: PathBuf,
+    files: Vec<PathBuf>,
     // Done
     #[arg(
         short = 'c',
@@ -53,10 +53,11 @@ struct Cli {
         conflicts_with("dereference")
     )]
     no_dereference: bool,
-    // TODO
+    // Done
     #[arg(
         long = "from",
-        help = "Change  the  ownership  of each file only if its current owner and/or group match those specified here. Either may be omitted, in which case a match is not required for the omitted attribute"
+        value_names(["OWNER:GROUP"]),
+        help = "Change the ownership of each file only if its current owner and/or group match those specified here. Either may be omitted, in which case a match is not required for the omitted attribute"
     )]
     from: Option<String>,
     // TODO
@@ -68,7 +69,7 @@ struct Cli {
     // TODO
     #[arg(long = "preserve-root", help = "Fail to operate on '/'")]
     preserve_root: bool,
-    // TODO
+    // Done
     #[arg(
         long = "reference",
         help = "Use REFERENCE ownership rather than specifying values, REFERENCE is always dereferenced if a symbolic link"
@@ -99,6 +100,16 @@ struct RecursiveActions {
     recursive_never: bool,
 }
 
+struct Perms {
+    owner: String,
+    group: String,
+}
+
+struct Id {
+    uid: Option<u32>,
+    gid: Option<u32>,
+}
+
 pub fn main() {
     let mut cli: Cli;
     // skip first arg if it happens to be "blutils"
@@ -115,32 +126,36 @@ pub fn main() {
     if cli.silent {
         cli.verbose = false;
     }
-    chown(&cli, cli.clone().file);
+    let perms = get_perms(cli.own_group.clone());
+    for file in &cli.files {
+        chown(&cli, file, &perms);
+    }
 }
 
-fn chown(cli: &Cli, p: PathBuf) {
-    let destination = p.clone();
+fn get_id(cli: &Cli, perms: &Perms) -> Id {
     let uid: Option<u32>;
     let gid: Option<u32>;
+    let owner = perms.owner.to_owned();
+    let group = perms.group.to_owned();
     unsafe {
-        if cli.owner == String::from("_") {
+        if owner == String::from("_") {
             uid = None;
         } else {
-            if let Ok(usr_id) = cli.owner.parse::<u32>() {
+            if let Ok(usr_id) = owner.parse::<u32>() {
                 uid = Some(usr_id);
             } else {
-                let owner = CString::new(cli.clone().owner).unwrap();
+                let owner = CString::new(owner).unwrap();
                 let pw_entry = getpwnam(owner.as_ptr()).read();
                 uid = Some(pw_entry.pw_uid);
             }
         };
-        if cli.group == String::from("_") {
+        if group == String::from("_") {
             gid = None;
         } else {
-            if let Ok(grp_id) = cli.group.parse::<u32>() {
+            if let Ok(grp_id) = group.parse::<u32>() {
                 gid = Some(grp_id);
             } else {
-                let group = CString::new(cli.clone().group).unwrap();
+                let group = CString::new(group).unwrap();
                 let group_entry = getgrnam(group.as_ptr()).read();
                 gid = Some(group_entry.gr_gid);
             }
@@ -150,6 +165,44 @@ fn chown(cli: &Cli, p: PathBuf) {
             "Both gid and uid is none, chown has no effect!",
         );
     };
+    return Id {
+        uid, 
+        gid
+    }
+}
+
+fn get_perms(perm_str: String) -> Perms {
+    let raw_perms = perm_str.split_once(":").unwrap_or(("_", "_"));
+    return Perms {
+        owner: raw_perms.0.to_string(),
+        group: raw_perms.1.to_string(),
+    };
+}
+
+fn chown(cli: &Cli, p: &PathBuf, perms: &Perms) {
+    let destination = p.clone();
+    let uid: Option<u32>;
+    let gid: Option<u32>;
+    let from_uid: Option<u32>;
+    let from_gid: Option<u32>;
+    if let Some(ref_path) = cli.clone().reference {
+        let metadata = wrap(ref_path.metadata(), PROGRAM);
+        uid = Some(metadata.st_uid());
+        gid = Some(metadata.st_gid());
+    } else {
+        let id = get_id(cli, perms);
+        uid = id.uid;
+        gid = id.gid;
+    };
+    if let Some(from_str) = cli.from.clone() {
+        let from_perms = get_perms(from_str);
+        let id = get_id(cli, &from_perms);
+        from_uid = id.uid;
+        from_gid = id.gid;
+        if from_gid != gid || from_uid != uid {
+            return
+        }
+    }
     log(
         cli.verbose && (gid.is_some() || uid.is_some()),
         format!("Changing ownership of {}", p.display()),
