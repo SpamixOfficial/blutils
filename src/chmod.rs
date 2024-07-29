@@ -1,12 +1,10 @@
+use std::fs::set_permissions;
 use std::process::exit;
 use std::{env::args, ffi::CString, path::PathBuf};
 
 use crate::utils::{log, wrap};
 use clap::{Args, Parser};
-use libc::{getgrnam, getpwnam};
 use std::os::linux::fs::MetadataExt;
-use std::os::unix::fs::chown as unix_chown;
-use std::os::unix::fs::lchown as unix_lchown;
 use walkdir::WalkDir;
 
 const PROGRAM: &str = "chmod";
@@ -120,12 +118,15 @@ pub fn main() {
     if cli.silent {
         cli.verbose = false;
     }
-    let perms = get_perms(cli.own_group.clone());
     for file in &cli.files {
         if cli.preserve_root && file.is_absolute() && file.to_str() == Some("/") {
             eprintln!("Can't operate on / when preserve-root!");
             exit(1);
         };
-        // TODO
+        chmod(&cli, file);
     }
+}
+
+fn chmod(cli: &Cli, p: &PathBuf) {
+    // TODO
 }
