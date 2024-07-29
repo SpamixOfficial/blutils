@@ -40,6 +40,9 @@ cargo run -- cp
 cargo run -- ln
 # rm
 cargo run -- rm
+# chown
+cargo run -- chown
+
 ```
 *NOTE: All of these commands do what they are supposed to do. This can lead to ***destructive*** actions.*
 

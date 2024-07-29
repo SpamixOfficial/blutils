@@ -1,12 +1,13 @@
+use std::process::exit;
 use std::{env::args, ffi::CString, path::PathBuf};
 
-use crate::utils::{libc_wrap, log, prompt, wrap, PathExtras, PathType};
-use clap::builder::Str;
+use crate::utils::{log, wrap};
 use clap::{Args, Parser};
 use libc::{getgrnam, getpwnam};
 use std::os::linux::fs::MetadataExt;
 use std::os::unix::fs::chown as unix_chown;
 use std::os::unix::fs::lchown as unix_lchown;
+use walkdir::WalkDir;
 
 const PROGRAM: &str = "chown";
 
@@ -19,7 +20,7 @@ const PROGRAM: &str = "chown";
 struct Cli {
     #[clap(value_parser, value_names(["OWNER:GROUP"]))]
     own_group: String,
-    #[clap(value_parser, required = true)]
+    #[clap(value_parser, num_args = 1.., value_delimiter = ' ', required = true)]
     files: Vec<PathBuf>,
     // Done
     #[arg(
@@ -60,13 +61,13 @@ struct Cli {
         help = "Change the ownership of each file only if its current owner and/or group match those specified here. Either may be omitted, in which case a match is not required for the omitted attribute"
     )]
     from: Option<String>,
-    // TODO
+    // Done
     #[arg(
         long = "no-preserve-root",
         help = "Dont treat '/' specially (the default)"
     )]
     no_preserve_root: bool,
-    // TODO
+    // Done
     #[arg(long = "preserve-root", help = "Fail to operate on '/'")]
     preserve_root: bool,
     // Done
@@ -75,10 +76,10 @@ struct Cli {
         help = "Use REFERENCE ownership rather than specifying values, REFERENCE is always dereferenced if a symbolic link"
     )]
     reference: Option<PathBuf>,
-    // TODO
+    // Done
     #[arg(short = 'R', long = "recursive", help = "Operate recursively")]
     recursive: bool,
-    // TODO
+    // Done
     #[command(flatten)]
     recursive_actions: RecursiveActions,
 }
@@ -86,17 +87,17 @@ struct Cli {
 #[derive(Args, Clone, Copy, Debug)]
 #[group(required = false, multiple = false)]
 struct RecursiveActions {
-    // TODO
+    // Done
     #[arg(
         short = 'H',
         help = "If a command line argument is a symbolic link to a directory, traverse it"
     )]
     recursive_dereference: bool,
-    // TODO
+    // Done
     #[arg(short = 'L', help = "Traverse every symbolic link found")]
     recursive_traverse: bool,
-    // TODO
-    #[arg(short = 'P', help = "Never traverse any symbolic links")]
+    // Done
+    #[arg(short = 'P', help = "Never traverse any symbolic links (default)")]
     recursive_never: bool,
 }
 
@@ -128,7 +129,15 @@ pub fn main() {
     }
     let perms = get_perms(cli.own_group.clone());
     for file in &cli.files {
-        chown(&cli, file, &perms);
+        if cli.preserve_root && file.is_absolute() && file.to_str() == Some("/") {
+            eprintln!("Can't operate on / wen preserve-root!");
+            exit(1);
+        };
+        if cli.recursive {
+            recursive_chown(&cli, file, &perms)
+        } else {
+            chown(&cli, file, &perms)
+        };
     }
 }
 
@@ -165,14 +174,11 @@ fn get_id(cli: &Cli, perms: &Perms) -> Id {
             "Both gid and uid is none, chown has no effect!",
         );
     };
-    return Id {
-        uid, 
-        gid
-    }
+    return Id { uid, gid };
 }
 
 fn get_perms(perm_str: String) -> Perms {
-    let raw_perms = perm_str.split_once(":").unwrap_or(("_", "_"));
+    let raw_perms = perm_str.split_once(":").unwrap_or((&perm_str, "_"));
     return Perms {
         owner: raw_perms.0.to_string(),
         group: raw_perms.1.to_string(),
@@ -199,8 +205,12 @@ fn chown(cli: &Cli, p: &PathBuf, perms: &Perms) {
         let id = get_id(cli, &from_perms);
         from_uid = id.uid;
         from_gid = id.gid;
-        if from_gid != gid || from_uid != uid {
-            return
+        let metadata = wrap(destination.metadata(), PROGRAM);
+        let file_uid = Some(metadata.st_uid());
+        let file_gid = Some(metadata.st_gid());
+
+        if from_gid != file_gid || from_uid != file_uid {
+            return;
         }
     }
     log(
@@ -211,5 +221,51 @@ fn chown(cli: &Cli, p: &PathBuf, perms: &Perms) {
         wrap(unix_lchown(destination, uid, gid), PROGRAM);
     } else {
         wrap(unix_chown(destination, uid, gid), PROGRAM);
+    }
+}
+
+fn recursive_chown(cli: &Cli, p: &PathBuf, perms: &Perms) {
+    if !p.is_dir() {
+        chown(cli, p, perms);
+        return;
+    }
+    let mut dir = WalkDir::new(&p)
+        .contents_first(true)
+        .follow_root_links(false);
+    if cli.recursive_actions.recursive_traverse {
+        dir = dir.follow_links(true).follow_root_links(true);
+    } else if cli.recursive_actions.recursive_dereference {
+        dir = dir.follow_root_links(true);
+    };
+    for entry in dir.into_iter().filter_map(|e| e.ok()) {
+        if let Some(from_str) = cli.from.clone() {
+            let from_perms = get_perms(from_str);
+            let id = get_id(cli, &from_perms);
+            let from_uid = id.uid;
+            let from_gid = id.gid;
+            let metadata = wrap(entry.path().metadata(), PROGRAM);
+            let file_uid = Some(metadata.st_uid());
+            let file_gid = Some(metadata.st_gid());
+
+            if from_gid != file_gid || from_uid != file_uid {
+                continue;
+            }
+        }
+        let uid: Option<u32>;
+        let gid: Option<u32>;
+        if let Some(ref_path) = cli.clone().reference {
+            let metadata = wrap(ref_path.metadata(), PROGRAM);
+            uid = Some(metadata.st_uid());
+            gid = Some(metadata.st_gid());
+        } else {
+            let id = get_id(cli, perms);
+            uid = id.uid;
+            gid = id.gid;
+        };
+        if cli.no_dereference {
+            wrap(unix_lchown(entry.path(), uid, gid), PROGRAM);
+        } else {
+            wrap(unix_chown(entry.path(), uid, gid), PROGRAM);
+        }
     }
 }
