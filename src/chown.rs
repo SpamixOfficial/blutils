@@ -130,7 +130,7 @@ pub fn main() {
     let perms = get_perms(cli.own_group.clone());
     for file in &cli.files {
         if cli.preserve_root && file.is_absolute() && file.to_str() == Some("/") {
-            eprintln!("Can't operate on / wen preserve-root!");
+            eprintln!("Can't operate on / when preserve-root!");
             exit(1);
         };
         if cli.recursive {

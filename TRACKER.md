@@ -13,7 +13,7 @@
 | mv    | move files or directories                         | :white_check_mark: |
 | ln    | make hard or symbolic links                       | :white_check_mark: |
 | chown | change file owner and group                       | :white_check_mark: |
-| chmod | change file permissions                           | :red_circle:       |
+| chmod | change file permissions                           | :construction:     |
 | dd    | convert and copy a file                           | :red_circle:       |
 | df    | report file system disk space usage               | :red_circle:       |
 | du    | estimate disk space used by files and directories | :red_circle:       |
