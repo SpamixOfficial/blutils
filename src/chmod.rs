@@ -134,14 +134,41 @@ fn get_mode(cli: &Cli) -> u32 {
     if let Ok(mode) = u32::from_str_radix(&input, 8) {
         mode_bits = mode;
     } else {
-        let parts: Vec<String> = input.split_inclusive(['-','+','=']).map(|f| f.to_string()).collect();
-        if parts.len() > 3 {
+        let matches = input.match_indices(['-','+','=']); 
+        if matches.clone().count() != 1 {
             eprintln!("Invalid mode\nSyntax: [ugoa...][[-+=][perms...] or an octal number");
             exit(1);
-        }
+        };
+        let mod_type = matches.last().unwrap().1;
+        let parts = input.split_once(['-','+','=']).unwrap();
+        dbg!(parts, mod_type);
         mode_bits = 0o644
     }
     mode_bits
+}
+
+enum ModType {
+    Remove,
+    Add,
+    ExplicitEquals
+}
+
+enum ModGroup {
+    User,
+    Group,
+    NotInGroup,
+    All
+}
+
+enum ModPermission {
+    Read,
+    Write,
+    Execute,
+    ExecuteIfOthers,
+    Sticky,
+    CopyUser,
+    CopyGroup,
+    CopyOthers
 }
 
 fn chmod(cli: &Cli, p: &PathBuf) {
