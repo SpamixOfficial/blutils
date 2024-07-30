@@ -5,6 +5,7 @@ use std::{env::args, ffi::CString, path::PathBuf};
 
 use crate::utils::{log, wrap};
 use clap::{Args, Parser};
+use libc::{S_IRGRP, S_IROTH, S_IRUSR, S_ISVTX, S_IWGRP, S_IWOTH, S_IWUSR, S_IXGRP, S_IXOTH, S_IXUSR};
 use std::os::linux::fs::MetadataExt;
 use walkdir::WalkDir;
 
@@ -129,7 +130,7 @@ pub fn main() {
 }
 
 fn get_mode(cli: &Cli) -> u32 {
-    let mode_bits: u32;
+    let mut mode_bits: u32;
     let input = cli.mode.clone();
     if let Ok(mode) = u32::from_str_radix(&input, 8) {
         mode_bits = mode;
@@ -149,10 +150,8 @@ fn get_mode(cli: &Cli) -> u32 {
             }
         };
         let parts = input.split_once(['-', '+', '=']).unwrap();
-
         let mut groups: Vec<ModGroup> = vec![];
-
-        let mut permissions: Vec<ModPermission> = vec![];
+        mode_bits = 0;
 
         for group_char in parts.0.chars() {
             groups.push(match group_char {
@@ -166,26 +165,59 @@ fn get_mode(cli: &Cli) -> u32 {
                 }
             })
         }
-        
-        for perm_char in parts.1.chars() {
-            permissions.push(match perm_char {
-                'r' => ModPermission::Read,
-                'w' => ModPermission::Write,
-                'x' => ModPermission::Execute,
-                'X' => ModPermission::ExecuteIfOthers,
-                't' => ModPermission::Sticky,
-                'u' => ModPermission::CopyUser,
-                'g' => ModPermission::CopyGroup,
-                'o' => ModPermission::CopyOthers,
-                _ => {
-                    eprintln!("{} is not a valid permission!", perm_char);
-                    exit(1);
-                }
-            })
-        }
 
-        dbg!(parts, mod_type);
-        mode_bits = 0o644
+        for group in groups {
+            for perm_char in parts.1.chars() {
+                match perm_char {
+                    'r' => {
+                        mode_bits += match group {
+                            ModGroup::User => S_IRUSR,
+                            ModGroup::Group => S_IRGRP,
+                            ModGroup::NotInGroup => S_IROTH,
+                            ModGroup::All => S_IRGRP + S_IROTH + S_IRUSR
+                        }
+                    }
+                    'w' => {
+                        mode_bits += match group {
+                            ModGroup::User => S_IWUSR,
+                            ModGroup::Group => S_IWGRP,
+                            ModGroup::NotInGroup => S_IWOTH,
+                            ModGroup::All => S_IWGRP + S_IWOTH + S_IWUSR
+                        }
+                    },
+                    'x' => {
+                        mode_bits += match group {
+                            ModGroup::User => S_IXUSR,
+                            ModGroup::Group => S_IXGRP,
+                            ModGroup::NotInGroup => S_IXOTH,
+                            ModGroup::All => S_IXGRP + S_IXOTH + S_IXUSR
+                        }
+                    },
+                    // Implement later
+                    /*'X' => {
+                        mode_bits += match group {
+                            ModGroup::User => S_IXUSR,
+                            ModGroup::Group => S_IXGRP,
+                            ModGroup::NotInGroup => S_IXOTH,
+                            ModGroup::All => S_IXGRP + S_IXOTH + S_IXUSR
+                        }
+                    },*/
+                    't' => {
+                        mode_bits += S_ISVTX
+                    },
+                    // TODO Implement tomorrow
+                    /*
+                    'u' => ModPermission::CopyUser,
+                    'g' => ModPermission::CopyGroup,
+                    'o' => ModPermission::CopyOthers,
+                    */
+                    _ => {
+                        eprintln!("{} is not a valid permission!", perm_char);
+                        exit(1);
+                    }
+                }
+            }
+        }
     }
     mode_bits
 }
@@ -202,17 +234,6 @@ enum ModGroup {
     NotInGroup,
     All,
 }
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
-enum ModPermission {
-    Read,
-    Write,
-    Execute,
-    ExecuteIfOthers,
-    Sticky,
-    CopyUser,
-    CopyGroup,
-    CopyOthers,
-}
 
 fn chmod(cli: &Cli, p: &PathBuf) {
     let mut perms = p.metadata().unwrap().permissions();
@@ -225,6 +246,6 @@ fn chmod(cli: &Cli, p: &PathBuf) {
         },
         PROGRAM,
     );
-    //perms.set_mode(new_mode);
-    //wrap(destination.set_permissions(perms), PROGRAM);
+    perms.set_mode(new_mode);
+    wrap(destination.set_permissions(perms), PROGRAM);
 }
