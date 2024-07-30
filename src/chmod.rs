@@ -134,32 +134,75 @@ fn get_mode(cli: &Cli) -> u32 {
     if let Ok(mode) = u32::from_str_radix(&input, 8) {
         mode_bits = mode;
     } else {
-        let matches = input.match_indices(['-','+','=']); 
+        let matches = input.match_indices(['-', '+', '=']);
         if matches.clone().count() != 1 {
             eprintln!("Invalid mode\nSyntax: [ugoa...][[-+=][perms...] or an octal number");
             exit(1);
         };
-        let mod_type = matches.last().unwrap().1;
-        let parts = input.split_once(['-','+','=']).unwrap();
+        let mod_type = match matches.last().unwrap().1 {
+            "+" => ModType::Add,
+            "-" => ModType::Remove,
+            "=" => ModType::ExplicitEquals,
+            x => {
+                eprintln!("{} is not a valid operator!", x);
+                exit(1);
+            }
+        };
+        let parts = input.split_once(['-', '+', '=']).unwrap();
+
+        let mut groups: Vec<ModGroup> = vec![];
+
+        let mut permissions: Vec<ModPermission> = vec![];
+
+        for group_char in parts.0.chars() {
+            groups.push(match group_char {
+                'u' => ModGroup::User,
+                'g' => ModGroup::Group,
+                'o' => ModGroup::NotInGroup,
+                'a' => ModGroup::All,
+                _ => {
+                    eprintln!("{} is not a valid user/group!", group_char);
+                    exit(1);
+                }
+            })
+        }
+        
+        for perm_char in parts.1.chars() {
+            permissions.push(match perm_char {
+                'r' => ModPermission::Read,
+                'w' => ModPermission::Write,
+                'x' => ModPermission::Execute,
+                'X' => ModPermission::ExecuteIfOthers,
+                't' => ModPermission::Sticky,
+                'u' => ModPermission::CopyUser,
+                'g' => ModPermission::CopyGroup,
+                'o' => ModPermission::CopyOthers,
+                _ => {
+                    eprintln!("{} is not a valid permission!", perm_char);
+                    exit(1);
+                }
+            })
+        }
+
         dbg!(parts, mod_type);
         mode_bits = 0o644
     }
     mode_bits
 }
-
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 enum ModType {
     Remove,
     Add,
-    ExplicitEquals
+    ExplicitEquals,
 }
-
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 enum ModGroup {
     User,
     Group,
     NotInGroup,
-    All
+    All,
 }
-
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 enum ModPermission {
     Read,
     Write,
@@ -168,17 +211,20 @@ enum ModPermission {
     Sticky,
     CopyUser,
     CopyGroup,
-    CopyOthers
+    CopyOthers,
 }
 
 fn chmod(cli: &Cli, p: &PathBuf) {
     let mut perms = p.metadata().unwrap().permissions();
     let new_mode = get_mode(cli);
-    let destination = wrap(if p.is_file() {
-        File::options().write(true).open(p)
-    } else {
-        File::open(p)
-    }, PROGRAM);
+    let destination = wrap(
+        if p.is_file() {
+            File::options().write(true).open(p)
+        } else {
+            File::open(p)
+        },
+        PROGRAM,
+    );
     //perms.set_mode(new_mode);
     //wrap(destination.set_permissions(perms), PROGRAM);
 }
