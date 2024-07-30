@@ -1,4 +1,5 @@
-use std::fs::set_permissions;
+use std::fs::{set_permissions, File, Permissions};
+use std::os::unix::fs::PermissionsExt;
 use std::process::exit;
 use std::{env::args, ffi::CString, path::PathBuf};
 
@@ -127,6 +128,26 @@ pub fn main() {
     }
 }
 
+fn get_mode(cli: &Cli) -> u32 {
+    let mode_bits: u32;
+    let input = cli.mode.clone();
+    if let Ok(mode) = u32::from_str_radix(&input, 8) {
+        mode_bits = mode;
+    } else {
+        mode_bits = 0o644;
+    }
+    mode_bits
+}
+
 fn chmod(cli: &Cli, p: &PathBuf) {
     // TODO
+    let mut perms = p.metadata().unwrap().permissions();
+    let new_mode = get_mode(cli);
+    let destination = wrap(if p.is_file() {
+        File::options().write(true).open(p)
+    } else {
+        File::open(p)
+    }, PROGRAM);
+    perms.set_mode(new_mode);
+    wrap(destination.set_permissions(perms), PROGRAM);
 }
