@@ -134,13 +134,17 @@ fn get_mode(cli: &Cli) -> u32 {
     if let Ok(mode) = u32::from_str_radix(&input, 8) {
         mode_bits = mode;
     } else {
-        mode_bits = 0o644;
+        let parts: Vec<String> = input.split_inclusive(['-','+','=']).map(|f| f.to_string()).collect();
+        if parts.len() > 3 {
+            eprintln!("Invalid mode\nSyntax: [ugoa...][[-+=][perms...] or an octal number");
+            exit(1);
+        }
+        mode_bits = 0o644
     }
     mode_bits
 }
 
 fn chmod(cli: &Cli, p: &PathBuf) {
-    // TODO
     let mut perms = p.metadata().unwrap().permissions();
     let new_mode = get_mode(cli);
     let destination = wrap(if p.is_file() {
@@ -148,6 +152,6 @@ fn chmod(cli: &Cli, p: &PathBuf) {
     } else {
         File::open(p)
     }, PROGRAM);
-    perms.set_mode(new_mode);
-    wrap(destination.set_permissions(perms), PROGRAM);
+    //perms.set_mode(new_mode);
+    //wrap(destination.set_permissions(perms), PROGRAM);
 }
