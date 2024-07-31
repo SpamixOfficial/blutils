@@ -1,15 +1,13 @@
-use std::fs::{set_permissions, File, Permissions};
+use std::fs::File;
 use std::os::unix::fs::PermissionsExt;
 use std::process::exit;
-use std::{env::args, ffi::CString, path::PathBuf};
+use std::{env::args, path::PathBuf};
 
 use crate::utils::{log, wrap};
 use clap::{Args, Parser};
 use libc::{
     S_IRGRP, S_IROTH, S_IRUSR, S_ISVTX, S_IWGRP, S_IWOTH, S_IWUSR, S_IXGRP, S_IXOTH, S_IXUSR,
 };
-use std::os::linux::fs::MetadataExt;
-use walkdir::WalkDir;
 
 const PROGRAM: &str = "chmod";
 
@@ -96,16 +94,6 @@ struct RecursiveActions {
     recursive_never: bool,
 }
 
-struct Perms {
-    owner: String,
-    group: String,
-}
-
-struct Id {
-    uid: Option<u32>,
-    gid: Option<u32>,
-}
-
 pub fn main() {
     let mut cli: Cli;
     // skip first arg if it happens to be "blutils"
@@ -153,7 +141,8 @@ fn get_mode(cli: &Cli, p: &PathBuf) -> u32 {
         };
         let mut parts: (String, String) = input
             .split_once(['-', '+', '='])
-            .map(|f| {(f.0.to_string(), f.1.to_string())}).unwrap();
+            .map(|f| (f.0.to_string(), f.1.to_string()))
+            .unwrap();
         let mut groups: Vec<ModGroup> = vec![];
         mode_bits = p.metadata().unwrap().permissions().mode();
 
@@ -172,11 +161,45 @@ fn get_mode(cli: &Cli, p: &PathBuf) -> u32 {
 
         let mut newmode = 0;
 
-        parts.1.chars().for_each(|f| {
+        let mut ugo_used = false;
+        parts.1.clone().chars().for_each(|f| {
+            let mut read_var = 0;
+            let mut write_var = 0;
+            let mut execute_var = 0;
+            let do_action;
             if f == 'u' {
-                parts.1 = parts.1.replace("u", "");
-                if (mode_bits & S_IWUSR) != 0 {
-                    parts.1
+                read_var = S_IRUSR;
+                write_var = S_IWUSR;
+                execute_var = S_IXUSR;
+                do_action = true;
+            } else if f == 'g' {
+                read_var = S_IRGRP;
+                write_var = S_IWGRP;
+                execute_var = S_IXGRP;
+                do_action = true;
+            } else if f == 'o' {
+                read_var = S_IROTH;
+                write_var = S_IWOTH;
+                execute_var = S_IXOTH;
+                do_action = true
+            } else {
+                do_action = false;
+            }
+            if do_action == true {
+                if ugo_used {
+                    eprintln!("If \"u/g/o\", only 1 letter may be used!\nSuper user tip: U(ser), G(roup) and O(thers) in this context means you want to copy this set of permissions from this entity!");
+                    exit(1);
+                };
+                ugo_used = true;
+                parts.1 = parts.1.replace(f.to_string().as_str(), "");
+                if (mode_bits & write_var) != 0 {
+                    parts.1.push('w');
+                };
+                if (mode_bits & read_var) != 0 {
+                    parts.1.push('r');
+                };
+                if (mode_bits & execute_var) != 0 {
+                    parts.1.push('x');
                 };
             }
         });
@@ -222,39 +245,6 @@ fn get_mode(cli: &Cli, p: &PathBuf) -> u32 {
                     }
                     // Sticky bit
                     't' => newmode += S_ISVTX,
-
-                    // Options to copy permissions
-                    'u' => {
-                        if parts.1.len() > 1 {
-                            eprintln!("If \"u/g/o\", only 1 letter may be used!\nSuper user tip: U(ser), G(roup) and O(thers) in this context means you want to copy this set of permissions from this entity!");
-                            exit(1);
-                        };
-                        // Isolate the bits and append them
-                        /*if (mode_bits & S_IWUSR) != 0 {
-                            match group {
-                                ModGroup::User => S_IWUSR,
-                                ModGroup::Group => S_IWGRP,
-                                ModGroup::NotInGroup => S_IWOTH,
-                                ModGroup::All => S_IXGRP + S_IXOTH + S_IXUSR,
-                            }
-                        };*/
-                    }
-                    'g' => {
-                        if parts.1.len() > 1 {
-                            eprintln!("If \"u/g/o\", only 1 letter may be used!\nSuper user tip: U(ser), G(roup) and O(thers) in this context means you want to copy this set of permissions from this entity!");
-                            exit(1);
-                        }
-                        // Isolate the bits and append them
-                        newmode += mode_bits & (S_IWGRP | S_IRGRP | S_IXGRP);
-                    }
-                    'o' => {
-                        if parts.1.len() > 1 {
-                            eprintln!("If \"u/g/o\", only 1 letter may be used!\nSuper user tip: U(ser), G(roup) and O(thers) in this context means you want to copy this set of permissions from this entity!");
-                            exit(1);
-                        }
-                        // Isolate the bits and append them
-                        newmode += mode_bits & (S_IWOTH | S_IROTH | S_IXOTH);
-                    }
                     _ => {
                         eprintln!("{} is not a valid permission!", perm_char);
                         exit(1);
@@ -298,5 +288,5 @@ fn chmod(cli: &Cli, p: &PathBuf) {
         PROGRAM,
     );
     perms.set_mode(new_mode);
-    //wrap(destination.set_permissions(perms), PROGRAM);
+    wrap(destination.set_permissions(perms), PROGRAM);
 }
