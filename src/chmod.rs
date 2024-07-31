@@ -5,7 +5,9 @@ use std::{env::args, ffi::CString, path::PathBuf};
 
 use crate::utils::{log, wrap};
 use clap::{Args, Parser};
-use libc::{S_IRGRP, S_IROTH, S_IRUSR, S_ISVTX, S_IWGRP, S_IWOTH, S_IWUSR, S_IXGRP, S_IXOTH, S_IXUSR};
+use libc::{
+    S_IRGRP, S_IROTH, S_IRUSR, S_ISVTX, S_IWGRP, S_IWOTH, S_IWUSR, S_IXGRP, S_IXOTH, S_IXUSR,
+};
 use std::os::linux::fs::MetadataExt;
 use walkdir::WalkDir;
 
@@ -149,7 +151,9 @@ fn get_mode(cli: &Cli, p: &PathBuf) -> u32 {
                 exit(1);
             }
         };
-        let parts = input.split_once(['-', '+', '=']).unwrap();
+        let mut parts: (String, String) = input
+            .split_once(['-', '+', '='])
+            .map(|f| {(f.0.to_string(), f.1.to_string())}).unwrap();
         let mut groups: Vec<ModGroup> = vec![];
         mode_bits = p.metadata().unwrap().permissions().mode();
 
@@ -165,8 +169,17 @@ fn get_mode(cli: &Cli, p: &PathBuf) -> u32 {
                 }
             })
         }
-        
+
         let mut newmode = 0;
+
+        parts.1.chars().for_each(|f| {
+            if f == 'u' {
+                parts.1 = parts.1.replace("u", "");
+                if (mode_bits & S_IWUSR) != 0 {
+                    parts.1
+                };
+            }
+        });
 
         for group in groups {
             for perm_char in parts.1.chars() {
@@ -176,7 +189,7 @@ fn get_mode(cli: &Cli, p: &PathBuf) -> u32 {
                             ModGroup::User => S_IRUSR,
                             ModGroup::Group => S_IRGRP,
                             ModGroup::NotInGroup => S_IROTH,
-                            ModGroup::All => S_IRGRP + S_IROTH + S_IRUSR
+                            ModGroup::All => S_IRGRP + S_IROTH + S_IRUSR,
                         }
                     }
                     'w' => {
@@ -184,35 +197,64 @@ fn get_mode(cli: &Cli, p: &PathBuf) -> u32 {
                             ModGroup::User => S_IWUSR,
                             ModGroup::Group => S_IWGRP,
                             ModGroup::NotInGroup => S_IWOTH,
-                            ModGroup::All => S_IWGRP + S_IWOTH + S_IWUSR
+                            ModGroup::All => S_IWGRP + S_IWOTH + S_IWUSR,
                         }
-                    },
+                    }
                     'x' => {
                         newmode += match group {
                             ModGroup::User => S_IXUSR,
                             ModGroup::Group => S_IXGRP,
                             ModGroup::NotInGroup => S_IXOTH,
-                            ModGroup::All => S_IXGRP & S_IXOTH & S_IXUSR
+                            ModGroup::All => S_IXGRP + S_IXOTH + S_IXUSR,
                         }
-                    },
-                    // Implement later
-                    /*'X' => {
-                        newmode += match group {
-                            ModGroup::User => S_IXUSR,
-                            ModGroup::Group => S_IXGRP,
-                            ModGroup::NotInGroup => S_IXOTH,
-                            ModGroup::All => S_IXGRP + S_IXOTH + S_IXUSR
+                    }
+                    'X' => {
+                        newmode += if (mode_bits & (S_IXUSR | S_IXGRP | S_IXOTH)) != 0 {
+                            match group {
+                                ModGroup::User => S_IXUSR,
+                                ModGroup::Group => S_IXGRP,
+                                ModGroup::NotInGroup => S_IXOTH,
+                                ModGroup::All => S_IXGRP + S_IXOTH + S_IXUSR,
+                            }
+                        } else {
+                            0
                         }
-                    },*/
-                    't' => {
-                        newmode += S_ISVTX
-                    },
-                    // TODO Implement tomorrow
-                    /*
-                    'u' => ModPermission::CopyUser,
-                    'g' => ModPermission::CopyGroup,
-                    'o' => ModPermission::CopyOthers,
-                    */
+                    }
+                    // Sticky bit
+                    't' => newmode += S_ISVTX,
+
+                    // Options to copy permissions
+                    'u' => {
+                        if parts.1.len() > 1 {
+                            eprintln!("If \"u/g/o\", only 1 letter may be used!\nSuper user tip: U(ser), G(roup) and O(thers) in this context means you want to copy this set of permissions from this entity!");
+                            exit(1);
+                        };
+                        // Isolate the bits and append them
+                        /*if (mode_bits & S_IWUSR) != 0 {
+                            match group {
+                                ModGroup::User => S_IWUSR,
+                                ModGroup::Group => S_IWGRP,
+                                ModGroup::NotInGroup => S_IWOTH,
+                                ModGroup::All => S_IXGRP + S_IXOTH + S_IXUSR,
+                            }
+                        };*/
+                    }
+                    'g' => {
+                        if parts.1.len() > 1 {
+                            eprintln!("If \"u/g/o\", only 1 letter may be used!\nSuper user tip: U(ser), G(roup) and O(thers) in this context means you want to copy this set of permissions from this entity!");
+                            exit(1);
+                        }
+                        // Isolate the bits and append them
+                        newmode += mode_bits & (S_IWGRP | S_IRGRP | S_IXGRP);
+                    }
+                    'o' => {
+                        if parts.1.len() > 1 {
+                            eprintln!("If \"u/g/o\", only 1 letter may be used!\nSuper user tip: U(ser), G(roup) and O(thers) in this context means you want to copy this set of permissions from this entity!");
+                            exit(1);
+                        }
+                        // Isolate the bits and append them
+                        newmode += mode_bits & (S_IWOTH | S_IROTH | S_IXOTH);
+                    }
                     _ => {
                         eprintln!("{} is not a valid permission!", perm_char);
                         exit(1);
@@ -224,8 +266,8 @@ fn get_mode(cli: &Cli, p: &PathBuf) -> u32 {
         match mod_type {
             ModType::Add => mode_bits |= newmode,
             ModType::Remove => mode_bits &= !newmode,
-            _ => mode_bits = newmode
-        } 
+            _ => mode_bits = newmode,
+        }
     }
     dbg!(format!("{:o}", mode_bits));
     mode_bits
@@ -256,5 +298,5 @@ fn chmod(cli: &Cli, p: &PathBuf) {
         PROGRAM,
     );
     perms.set_mode(new_mode);
-    wrap(destination.set_permissions(perms), PROGRAM);
+    //wrap(destination.set_permissions(perms), PROGRAM);
 }
