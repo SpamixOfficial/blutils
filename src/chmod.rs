@@ -245,6 +245,7 @@ enum ModGroup {
 }
 
 fn chmod(cli: &Cli, p: &PathBuf) {
+    let mut perms = p.metadata().unwrap().permissions();
     let new_mode = get_mode(cli, p);
     let destination = wrap(
         if p.is_file() {
