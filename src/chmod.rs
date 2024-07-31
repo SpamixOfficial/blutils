@@ -129,7 +129,7 @@ pub fn main() {
     }
 }
 
-fn get_mode(cli: &Cli) -> u32 {
+fn get_mode(cli: &Cli, p: &PathBuf) -> u32 {
     let mut mode_bits: u32;
     let input = cli.mode.clone();
     if let Ok(mode) = u32::from_str_radix(&input, 8) {
@@ -151,7 +151,7 @@ fn get_mode(cli: &Cli) -> u32 {
         };
         let parts = input.split_once(['-', '+', '=']).unwrap();
         let mut groups: Vec<ModGroup> = vec![];
-        mode_bits = 0;
+        mode_bits = p.metadata().unwrap().permissions().mode();
 
         for group_char in parts.0.chars() {
             groups.push(match group_char {
@@ -165,12 +165,14 @@ fn get_mode(cli: &Cli) -> u32 {
                 }
             })
         }
+        
+        let mut newmode = 0;
 
         for group in groups {
             for perm_char in parts.1.chars() {
                 match perm_char {
                     'r' => {
-                        mode_bits += match group {
+                        newmode += match group {
                             ModGroup::User => S_IRUSR,
                             ModGroup::Group => S_IRGRP,
                             ModGroup::NotInGroup => S_IROTH,
@@ -178,7 +180,7 @@ fn get_mode(cli: &Cli) -> u32 {
                         }
                     }
                     'w' => {
-                        mode_bits += match group {
+                        newmode += match group {
                             ModGroup::User => S_IWUSR,
                             ModGroup::Group => S_IWGRP,
                             ModGroup::NotInGroup => S_IWOTH,
@@ -186,16 +188,16 @@ fn get_mode(cli: &Cli) -> u32 {
                         }
                     },
                     'x' => {
-                        mode_bits += match group {
+                        newmode += match group {
                             ModGroup::User => S_IXUSR,
                             ModGroup::Group => S_IXGRP,
                             ModGroup::NotInGroup => S_IXOTH,
-                            ModGroup::All => S_IXGRP + S_IXOTH + S_IXUSR
+                            ModGroup::All => S_IXGRP & S_IXOTH & S_IXUSR
                         }
                     },
                     // Implement later
                     /*'X' => {
-                        mode_bits += match group {
+                        newmode += match group {
                             ModGroup::User => S_IXUSR,
                             ModGroup::Group => S_IXGRP,
                             ModGroup::NotInGroup => S_IXOTH,
@@ -203,7 +205,7 @@ fn get_mode(cli: &Cli) -> u32 {
                         }
                     },*/
                     't' => {
-                        mode_bits += S_ISVTX
+                        newmode += S_ISVTX
                     },
                     // TODO Implement tomorrow
                     /*
@@ -218,7 +220,14 @@ fn get_mode(cli: &Cli) -> u32 {
                 }
             }
         }
+
+        match mod_type {
+            ModType::Add => mode_bits |= newmode,
+            ModType::Remove => mode_bits &= !newmode,
+            _ => mode_bits = newmode
+        } 
     }
+    dbg!(format!("{:o}", mode_bits));
     mode_bits
 }
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
@@ -236,8 +245,7 @@ enum ModGroup {
 }
 
 fn chmod(cli: &Cli, p: &PathBuf) {
-    let mut perms = p.metadata().unwrap().permissions();
-    let new_mode = get_mode(cli);
+    let new_mode = get_mode(cli, p);
     let destination = wrap(
         if p.is_file() {
             File::options().write(true).open(p)
