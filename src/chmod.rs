@@ -6,7 +6,7 @@ use std::{env::args, path::PathBuf};
 use crate::utils::{log, wrap};
 use clap::{Args, Parser};
 use libc::{
-    S_IRGRP, S_IROTH, S_IRUSR, S_ISVTX, S_IWGRP, S_IWOTH, S_IWUSR, S_IXGRP, S_IXOTH, S_IXUSR,
+    S_IRGRP, S_IROTH, S_IRUSR, S_ISGID, S_ISUID, S_ISVTX, S_IWGRP, S_IWOTH, S_IWUSR, S_IXGRP, S_IXOTH, S_IXUSR
 };
 
 const PROGRAM: &str = "chmod";
@@ -245,10 +245,18 @@ fn get_mode(cli: &Cli, p: &PathBuf) -> u32 {
                     }
                     // Sticky bit
                     't' => newmode += S_ISVTX,
+                    's' => {
+                        newmode += match group {
+                            ModGroup::User => S_ISUID,
+                            ModGroup::Group => S_ISGID,
+                            ModGroup::NotInGroup => 0,
+                            ModGroup::All => S_ISUID + S_ISGID,
+                        }
+                    },
                     _ => {
                         eprintln!("{} is not a valid permission!", perm_char);
                         exit(1);
-                    }
+                    },
                 }
             }
         }
