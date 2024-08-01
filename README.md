@@ -11,8 +11,8 @@ NOTE: Blutils is compatible in almost every way, except SELinux and SMACK functi
 
 This set of coretutils has a lot of work left to do, but check out the Implementation tracker down below to find out what utils are done!
 
-
 # Building
+
 For the moment there's no way to install or build this set of utils. There is a "build.py" script but it wont symlink anything, so really you're on your own if you want to install this.
 
 When I feel that it is in an acceptable state I'll provide an installation method!
@@ -20,21 +20,23 @@ When I feel that it is in an acceptable state I'll provide an installation metho
 But, if you want to try it out anyways, read this!
 
 ## How to actually test out blutils
+
 The most solid way I can recommend to try out blutils is by using the command "cargo run".
 
 Here's the commands you'll need to try it out:
+
 ```
 # help page
 cargo run ( or ) cargo run -- --help
 # cat
-cargo run -- cat 
+cargo run -- cat
 # mkdir
 cargo run -- mkdir
-# rmdir 
+# rmdir
 cargo run -- rmdir
 # mv
 cargo run -- mv
-# cp 
+# cp
 cargo run -- cp
 # ln
 cargo run -- ln
@@ -42,9 +44,11 @@ cargo run -- ln
 cargo run -- rm
 # chown
 cargo run -- chown
-
+# chmod
+cargo run -- chmod
 ```
-*NOTE: All of these commands do what they are supposed to do. This can lead to ***destructive*** actions.*
+
+\*NOTE: All of these commands do what they are supposed to do. This can lead to **_destructive_** actions.\*
 
 **TREAT THESE COMMANDS AS YOU WOULD TREAT YOUR NORMAL COMMANDS!**
 
