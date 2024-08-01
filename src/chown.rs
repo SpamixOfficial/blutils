@@ -192,7 +192,7 @@ fn chown(cli: &Cli, p: &PathBuf, perms: &Perms) {
     let from_uid: Option<u32>;
     let from_gid: Option<u32>;
     if let Some(ref_path) = cli.clone().reference {
-        let metadata = wrap(ref_path.metadata(), PROGRAM);
+        let metadata = wrap(ref_path.metadata(), PROGRAM, cli.silent);
         uid = Some(metadata.st_uid());
         gid = Some(metadata.st_gid());
     } else {
@@ -205,7 +205,7 @@ fn chown(cli: &Cli, p: &PathBuf, perms: &Perms) {
         let id = get_id(cli, &from_perms);
         from_uid = id.uid;
         from_gid = id.gid;
-        let metadata = wrap(destination.metadata(), PROGRAM);
+        let metadata = wrap(destination.metadata(), PROGRAM, cli.silent);
         let file_uid = Some(metadata.st_uid());
         let file_gid = Some(metadata.st_gid());
 
@@ -218,9 +218,9 @@ fn chown(cli: &Cli, p: &PathBuf, perms: &Perms) {
         format!("Changing ownership of {}", p.display()),
     );
     if cli.no_dereference {
-        wrap(unix_lchown(destination, uid, gid), PROGRAM);
+        wrap(unix_lchown(destination, uid, gid), PROGRAM, cli.silent);
     } else {
-        wrap(unix_chown(destination, uid, gid), PROGRAM);
+        wrap(unix_chown(destination, uid, gid), PROGRAM, cli.silent);
     }
 }
 
@@ -243,7 +243,7 @@ fn recursive_chown(cli: &Cli, p: &PathBuf, perms: &Perms) {
             let id = get_id(cli, &from_perms);
             let from_uid = id.uid;
             let from_gid = id.gid;
-            let metadata = wrap(entry.path().metadata(), PROGRAM);
+            let metadata = wrap(entry.path().metadata(), PROGRAM, cli.silent);
             let file_uid = Some(metadata.st_uid());
             let file_gid = Some(metadata.st_gid());
 
@@ -254,7 +254,7 @@ fn recursive_chown(cli: &Cli, p: &PathBuf, perms: &Perms) {
         let uid: Option<u32>;
         let gid: Option<u32>;
         if let Some(ref_path) = cli.clone().reference {
-            let metadata = wrap(ref_path.metadata(), PROGRAM);
+            let metadata = wrap(ref_path.metadata(), PROGRAM, cli.silent);
             uid = Some(metadata.st_uid());
             gid = Some(metadata.st_gid());
         } else {
@@ -263,9 +263,9 @@ fn recursive_chown(cli: &Cli, p: &PathBuf, perms: &Perms) {
             gid = id.gid;
         };
         if cli.no_dereference {
-            wrap(unix_lchown(entry.path(), uid, gid), PROGRAM);
+            wrap(unix_lchown(entry.path(), uid, gid), PROGRAM, cli.silent);
         } else {
-            wrap(unix_chown(entry.path(), uid, gid), PROGRAM);
+            wrap(unix_chown(entry.path(), uid, gid), PROGRAM, cli.silent);
         }
     }
 }

@@ -188,13 +188,13 @@ fn backup(cli: &Cli, p: &PathBuf) {
 
     if choice == Choice::Nil || choice == Choice::Existing {
         if !Path::new(&backup_path).exists() {
-            _ = wrap(fs::copy(p, backup_path), PROGRAM);
+            _ = wrap(fs::copy(p, backup_path), PROGRAM, false);
         } else {
             let mut i = 0;
             loop {
                 backup_path = format!("{}{}{}", cli.destination.display(), suffix, i);
                 if !Path::new(&backup_path).exists() {
-                    _ = wrap(fs::copy(p, backup_path), PROGRAM);
+                    _ = wrap(fs::copy(p, backup_path), PROGRAM, false);
                     log(cli.verbose || cli.debug, "Backup successful");
                     break;
                 }
@@ -206,14 +206,14 @@ fn backup(cli: &Cli, p: &PathBuf) {
         loop {
             backup_path = format!("{}{}{}", cli.destination.display(), suffix, i);
             if !Path::new(&backup_path).exists() {
-                _ = wrap(fs::copy(p, backup_path), PROGRAM);
+                _ = wrap(fs::copy(p, backup_path), PROGRAM, false);
                 log(cli.verbose || cli.debug, "Backup successful");
                 break;
             }
             i = i + 1;
         }
     } else if choice == Choice::Simple || choice == Choice::Never {
-        _ = wrap(fs::copy(p, backup_path), PROGRAM);
+        _ = wrap(fs::copy(p, backup_path), PROGRAM, false);
         log(cli.verbose || cli.debug, "Backup successful");
     }
 }
@@ -301,12 +301,12 @@ fn mv(cli: &Cli, p: &PathBuf) {
                             exit(0)
                         }
                     }
-                    wrap(fs::copy(p, cli.destination.clone()), PROGRAM);
+                    wrap(fs::copy(p, cli.destination.clone()), PROGRAM, false);
                     log(
                         cli.verbose || cli.debug,
                         "Copying was successful! Remove original..",
                     );
-                    wrap(remove_file(p), PROGRAM);
+                    wrap(remove_file(p), PROGRAM, false);
                 } else {
                     if cli.destructive_actions.no_clobber && cli.destination.exists() {
                         eprintln!(
@@ -333,7 +333,7 @@ fn mv(cli: &Cli, p: &PathBuf) {
                     };
                 }
             } else {
-                wrap(rename_result, PROGRAM);
+                wrap(rename_result, PROGRAM, false);
             }
         }
         debug(cli.debug, "Exiting unsafe statement");

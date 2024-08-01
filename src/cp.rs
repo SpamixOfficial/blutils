@@ -318,13 +318,13 @@ fn backup(cli: &Cli, p: PathBuf) -> PathBuf {
 
     if choice == Choice::Nil || choice == Choice::Existing {
         if !Path::new(&backup_path).exists() {
-            _ = wrap(fs::copy(p_clone, backup_path), PROGRAM);
+            _ = wrap(fs::copy(p_clone, backup_path), PROGRAM, false);
         } else {
             let mut i = 0;
             loop {
                 backup_path = format!("{}{}{}", cli.destination.display(), suffix, i);
                 if !Path::new(&backup_path).exists() {
-                    _ = wrap(fs::copy(p_clone, backup_path), PROGRAM);
+                    _ = wrap(fs::copy(p_clone, backup_path), PROGRAM, false);
                     log(cli.verbose || cli.debug, "Backup successful");
                     break;
                 }
@@ -336,14 +336,14 @@ fn backup(cli: &Cli, p: PathBuf) -> PathBuf {
         loop {
             backup_path = format!("{}{}{}", cli.destination.display(), suffix, i);
             if !Path::new(&backup_path).exists() {
-                _ = wrap(fs::copy(p_clone, backup_path), PROGRAM);
+                _ = wrap(fs::copy(p_clone, backup_path), PROGRAM, false);
                 log(cli.verbose || cli.debug, "Backup successful");
                 break;
             }
             i = i + 1;
         }
     } else if choice == Choice::Simple || choice == Choice::Never {
-        _ = wrap(fs::copy(p_clone, backup_path), PROGRAM);
+        _ = wrap(fs::copy(p_clone, backup_path), PROGRAM, false);
         log(cli.verbose || cli.debug, "Backup successful");
     }
     return p;
@@ -402,12 +402,13 @@ fn cp(cli: &Cli, p: PathBuf) {
                 _ => remove_file(&cli.destination),
             },
             PROGRAM,
+            false
         );
     };
 
     let source;
     if cli.follow_symb && p.is_symlink() {
-        source = wrap(read_link(p), PROGRAM);
+        source = wrap(read_link(p), PROGRAM, false);
     } else {
         source = p;
     }
@@ -437,7 +438,7 @@ fn normal_cp(cli: &Cli, p: &PathBuf) {
     };
 
     if cli.parents {
-        _ = wrap(create_dir_all(destination.parent().unwrap()), PROGRAM);
+        _ = wrap(create_dir_all(destination.parent().unwrap()), PROGRAM, false);
     };
     if cli.attributes_only {
         match File::create_new(&destination) {
@@ -448,11 +449,11 @@ fn normal_cp(cli: &Cli, p: &PathBuf) {
             _ => (),
         };
     } else if cli.link {
-        _ = wrap(hard_link(p, &destination), PROGRAM);
+        _ = wrap(hard_link(p, &destination), PROGRAM, false);
     } else if cli.symbolic_link {
-        _ = wrap(symlink(p, &destination), PROGRAM);
+        _ = wrap(symlink(p, &destination), PROGRAM, false);
     } else {
-        _ = wrap(fs::copy(p, &destination), PROGRAM);
+        _ = wrap(fs::copy(p, &destination), PROGRAM, false);
     }
     preserve(
         cli,
@@ -468,16 +469,16 @@ fn recursive_cp(cli: &Cli, p: &PathBuf) {
         destination.push(p.file_stem().unwrap());
         dbg!(&destination.exists());
     };
-    _ = wrap(create_dir(&destination), PROGRAM);
+    _ = wrap(create_dir(&destination), PROGRAM, false);
     if cli.parents {
-        _ = wrap(create_dir_all(destination.parent().unwrap()), PROGRAM);
+        _ = wrap(create_dir_all(destination.parent().unwrap()), PROGRAM, false);
     };
 
     for entry in WalkDir::new(&p).into_iter().filter_map(|e| e.ok()) {
         let path = entry.path();
         let newpath = Path::new(&destination).join(&path.strip_prefix(&p).unwrap());
         if path.is_dir() {
-            _ = wrap(create_dir_all(newpath), PROGRAM);
+            _ = wrap(create_dir_all(newpath), PROGRAM, false);
         } else {
             if cli.attributes_only {
                 match File::create_new(&destination) {
@@ -488,16 +489,16 @@ fn recursive_cp(cli: &Cli, p: &PathBuf) {
                     _ => (),
                 };
             } else if cli.link && !cli.dereference {
-                _ = wrap(hard_link(path, newpath), PROGRAM);
+                _ = wrap(hard_link(path, newpath), PROGRAM, false);
             } else if cli.symbolic_link && !cli.dereference {
-                _ = wrap(symlink(path, newpath), PROGRAM);
+                _ = wrap(symlink(path, newpath), PROGRAM, false);
             // If dereference is active we need to read the symlink and copy directly
             // There will never be a situation where both dereference and no-dereference will be
             // active at the same time since clap makes them conflict with each other
             } else if cli.dereference && path.is_symlink() {
-                _ = wrap(fs::copy(wrap(read_link(path), PROGRAM), newpath), PROGRAM);
+                _ = wrap(fs::copy(wrap(read_link(path), PROGRAM, false), newpath), PROGRAM, false);
             } else {
-                _ = wrap(fs::copy(path, newpath), PROGRAM);
+                _ = wrap(fs::copy(path, newpath), PROGRAM, false);
             }
         }
         preserve(
@@ -518,7 +519,7 @@ fn preserve(cli: &Cli, p: &PathBuf, dest: &PathBuf) {
         File::options().write(true).open(dest)
     } else {
         File::open(dest)
-    }, PROGRAM);
+    }, PROGRAM, false);
 
     let mut preserve_list: Vec<Attributes> = vec![Attributes::Mode];
     // If preserve is specified, overwrite the default
@@ -539,13 +540,13 @@ fn preserve(cli: &Cli, p: &PathBuf, dest: &PathBuf) {
         //
         // Links will be implemented some time in the future, and "All" is also implemented
         if attribute == Attributes::Ownership || attribute == Attributes::All {
-            _ = wrap(destination.set_permissions(source.permissions()), PROGRAM);
+            _ = wrap(destination.set_permissions(source.permissions()), PROGRAM, false);
         }
         if attribute == Attributes::Timestamps || attribute == Attributes::All {
             let mut original_times = FileTimes::new();
             original_times = original_times.set_accessed(source.clone().accessed().unwrap());
             original_times = original_times.set_modified(source.clone().modified().unwrap());
-            _ = wrap(destination.set_times(original_times), PROGRAM);
+            _ = wrap(destination.set_times(original_times), PROGRAM, false);
         }
     }
 }

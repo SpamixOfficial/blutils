@@ -6,7 +6,8 @@ use std::{env::args, path::PathBuf};
 use crate::utils::{log, wrap};
 use clap::{Args, Parser};
 use libc::{
-    S_IRGRP, S_IROTH, S_IRUSR, S_ISGID, S_ISUID, S_ISVTX, S_IWGRP, S_IWOTH, S_IWUSR, S_IXGRP, S_IXOTH, S_IXUSR
+    S_IRGRP, S_IROTH, S_IRUSR, S_ISGID, S_ISUID, S_ISVTX, S_IWGRP, S_IWOTH, S_IWUSR, S_IXGRP,
+    S_IXOTH, S_IXUSR,
 };
 
 const PROGRAM: &str = "chmod";
@@ -37,7 +38,7 @@ struct Cli {
         help = "Suppress most error messages"
     )]
     silent: bool,
-    // TODO
+    // Done
     #[arg(short = 'v', long = "verbose", help = "explain whats being done")]
     verbose: bool,
     // TODO
@@ -54,14 +55,19 @@ struct Cli {
         conflicts_with("dereference")
     )]
     no_dereference: bool,
-    // TODO
+    // Done
     #[arg(
         long = "no-preserve-root",
-        help = "Dont treat '/' specially (the default)"
+        help = "Dont treat '/' specially (the default)",
+        conflicts_with("preserve_root")
     )]
     no_preserve_root: bool,
     // TODO
-    #[arg(long = "preserve-root", help = "Fail to operate on '/'")]
+    #[arg(
+        long = "preserve-root",
+        help = "Fail to operate on '/'",
+        conflicts_with("preserve_root")
+    )]
     preserve_root: bool,
     // TODO
     #[arg(
@@ -252,11 +258,11 @@ fn get_mode(cli: &Cli, p: &PathBuf) -> u32 {
                             ModGroup::NotInGroup => 0,
                             ModGroup::All => S_ISUID + S_ISGID,
                         }
-                    },
+                    }
                     _ => {
                         eprintln!("{} is not a valid permission!", perm_char);
                         exit(1);
-                    },
+                    }
                 }
             }
         }
@@ -267,7 +273,6 @@ fn get_mode(cli: &Cli, p: &PathBuf) -> u32 {
             _ => mode_bits = newmode,
         }
     }
-    dbg!(format!("{:o}", mode_bits));
     mode_bits
 }
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
@@ -294,7 +299,8 @@ fn chmod(cli: &Cli, p: &PathBuf) {
             File::open(p)
         },
         PROGRAM,
+        cli.silent
     );
     perms.set_mode(new_mode);
-    wrap(destination.set_permissions(perms), PROGRAM);
+    wrap(destination.set_permissions(perms), PROGRAM, cli.silent);
 }

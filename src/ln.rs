@@ -214,13 +214,13 @@ fn backup(cli: &Cli, p: PathBuf) -> PathBuf {
 
     if choice == Choice::Nil || choice == Choice::Existing {
         if !Path::new(&backup_path).exists() {
-            _ = wrap(fs::copy(p_clone, backup_path), PROGRAM);
+            _ = wrap(fs::copy(p_clone, backup_path), PROGRAM, false);
         } else {
             let mut i = 0;
             loop {
                 backup_path = format!("{}{}{}", destination.display(), suffix, i);
                 if !Path::new(&backup_path).exists() {
-                    _ = wrap(fs::copy(p_clone, backup_path), PROGRAM);
+                    _ = wrap(fs::copy(p_clone, backup_path), PROGRAM, false);
                     log(cli.verbose, "Backup successful");
                     break;
                 }
@@ -232,14 +232,14 @@ fn backup(cli: &Cli, p: PathBuf) -> PathBuf {
         loop {
             backup_path = format!("{}{}{}", destination.display(), suffix, i);
             if !Path::new(&backup_path).exists() {
-                _ = wrap(fs::copy(p_clone, backup_path), PROGRAM);
+                _ = wrap(fs::copy(p_clone, backup_path), PROGRAM, false);
                 log(cli.verbose, "Backup successful");
                 break;
             }
             i = i + 1;
         }
     } else if choice == Choice::Simple || choice == Choice::Never {
-        _ = wrap(fs::copy(p_clone, backup_path), PROGRAM);
+        _ = wrap(fs::copy(p_clone, backup_path), PROGRAM, false);
         log(cli.verbose, "Backup successful");
     }
     return p;
@@ -276,7 +276,7 @@ fn ln(cli: &Cli, path: PathBuf) {
     };
 
     if p.is_symlink() && cli.logical {
-        p = wrap(read_link(p), PROGRAM);
+        p = wrap(read_link(p), PROGRAM, false);
     }
 
     if cli.destructive_actions.force {
@@ -287,6 +287,7 @@ fn ln(cli: &Cli, path: PathBuf) {
                 _ => remove_dir_all(&destination),
             },
             PROGRAM,
+            false
         )
     }
 
@@ -308,7 +309,7 @@ fn ln(cli: &Cli, path: PathBuf) {
 //
 // Yk, keep it clean :-)
 fn slink(p: PathBuf, destination: PathBuf) {
-    wrap(symlink(p, destination), PROGRAM);
+    wrap(symlink(p, destination), PROGRAM, false);
 }
 
 fn link(cli: &Cli, p: PathBuf, destination: PathBuf) {
@@ -330,9 +331,10 @@ fn link(cli: &Cli, p: PathBuf, destination: PathBuf) {
                     0,
                 )),
                 PROGRAM,
+                false
             )
         };
     } else {
-        wrap(hard_link(p, destination), PROGRAM)
+        wrap(hard_link(p, destination), PROGRAM, false)
     };
 }

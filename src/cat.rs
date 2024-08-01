@@ -3,7 +3,6 @@ use std::ffi::OsStr;
 use std::fs;
 use std::io::{stdin, Read};
 use std::path::Path;
-use std::process::exit;
 
 /* Syntax highlighting */
 use syntect::easy::HighlightLines;
@@ -95,11 +94,11 @@ pub fn main() {
         let mut contents;
         if val != "-" {
             let path = Path::new(val);
-            contents = wrap(fs::read_to_string(path), PROGRAM);
+            contents = wrap(fs::read_to_string(path), PROGRAM, false);
         } else {
             let mut stdin = stdin();
             let mut buf: Vec<u8> = vec![];
-            wrap(stdin.read_to_end(&mut buf), PROGRAM);
+            wrap(stdin.read_to_end(&mut buf), PROGRAM, false);
             contents = String::from_utf8(buf)
                 .expect("This is a bug that shouldnt be possible. Please report this now.");
         };

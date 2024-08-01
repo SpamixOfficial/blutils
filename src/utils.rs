@@ -65,15 +65,17 @@ pub enum PathType {
     Symlink
 }
 
-pub fn wrap<T: Any, M: Display>(result: Result<T>, prog: M) -> T {
+pub fn wrap<T: Any, M: Display>(result: Result<T>, prog: M, silent: bool) -> T {
     let val = match result {
         Ok(val) => val,
         Err(e) => {
             let mut error_code = 1;
             if let Some(os_error) = e.raw_os_error() {
-                eprintln!("{}: Error: {}", prog, e.to_string());
+                if !silent {
+                    eprintln!("{}: Error: {}", prog, e.to_string());
+                }
                 error_code = os_error;
-            } else {
+            } else if !silent {
                 eprintln!("{}: Error: {}", prog, e.to_string())
             };
             exit(error_code)

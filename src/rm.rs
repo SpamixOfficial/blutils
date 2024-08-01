@@ -222,11 +222,11 @@ fn normal_rm(cli: &Cli, p: &PathBuf) {
     );
     if cli.rm_empty_dir && p.is_dir() {
         if p.read_dir().unwrap().next().is_none() {
-            _ = wrap(remove_dir(p), PROGRAM);
+            _ = wrap(remove_dir(p), PROGRAM, false);
             return;
         };
     }
-    _ = wrap(remove_file(p), PROGRAM);
+    _ = wrap(remove_file(p), PROGRAM, false);
 }
 
 fn recursive_rm(cli: &Cli, p: &PathBuf) {
