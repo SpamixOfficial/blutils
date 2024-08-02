@@ -4,7 +4,7 @@
 
 | Name  | Description                                       | Status             |
 | ----- | ------------------------------------------------- | ------------------ |
-| ls    | list directory                                    | :red_circle:       |
+| ls    | list directory                                    | :construction:     |
 | cat   | concatenate files to stdout                       | :white_check_mark: |
 | mkdir | make directory                                    | :white_check_mark: |
 | rmdir | remove empty directory                            | :white_check_mark: |
