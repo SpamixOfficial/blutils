@@ -71,7 +71,7 @@ struct Cli {
     )]
     dired: bool,
     #[arg(short = 'f', help = "Do not sort, enable -aU, disable -ls --color")]
-    no_sort: bool,
+    no_sort_color: bool,
     #[arg(
         short = 'F',
         long = "classify",
