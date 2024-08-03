@@ -26,11 +26,7 @@ struct Cli {
     almost_all: bool,
 
     //Done
-    #[arg(
-        long = "author",
-        help = "With -l, print the author of each file",
-        requires("list")
-    )]
+    #[arg(long = "author", help = "With -l, print the author of each file")]
     author: bool,
     //Done
     #[arg(
@@ -41,8 +37,7 @@ struct Cli {
     print_escapes: bool,
     #[arg(
         long = "block_size",
-        help = "With -l, scale sizes by SIZE when printing them; e.g., '--block-size=M'; see SIZE format below",
-        requires("list")
+        help = "With -l, scale sizes by SIZE when printing them; e.g., '--block-size=M'; see SIZE format below"
     )]
     block_size: Option<BlockSize>,
     // Done
@@ -56,21 +51,12 @@ struct Cli {
     ignore_backups: Option<String>,
     #[arg(
         short = 'c',
-        help = "With -lt: sort by, and show, ctime (time of last change of file status information); with -l: show ctime and sort by name; otherwise: sort by ctime, newest first",
-        requires("list")
+        help = "With -lt: sort by, and show, ctime (time of last change of file status information); with -l: show ctime and sort by name; otherwise: sort by ctime, newest first"
     )]
     show_ctime: bool,
-    #[arg(
-        short = 'C',
-        help = "List entries by columns",
-        default_value("true")
-    )]
+    #[arg(short = 'C', help = "List entries by columns", default_value("true"))]
     column: bool,
-    #[arg(
-        long = "color",
-        help = "Color the output WHEN",
-        default_value("never")
-    )]
+    #[arg(long = "color", help = "Color the output WHEN", default_value("never"))]
     color: Option<When>,
     #[arg(
         short = 'd',
@@ -84,10 +70,7 @@ struct Cli {
         help = "Generate output designed for Emacs' dired mode"
     )]
     dired: bool,
-    #[arg(
-        short = 'f',
-        help = "Do not sort, enable -aU, disable -ls --color"
-    )]
+    #[arg(short = 'f', help = "Do not sort, enable -aU, disable -ls --color")]
     no_sort: bool,
     #[arg(
         short = 'F',
@@ -95,25 +78,16 @@ struct Cli {
         help = "Append indicator (one of */=>@|) to entries WHEN"
     )]
     classify: Option<When>,
-    #[arg(
-        long = "file-type",
-        help = "Likewise, except do not append '*'"
-    )]
+    #[arg(long = "file-type", help = "Likewise, except do not append '*'")]
     file_type: bool,
     #[arg(
         long = "format",
         help = "Across -x, commas -m, horizontal -x, long -l, single-column -1, verbose -l, vertical -C"
     )]
     format: Option<FormatWord>,
-    #[arg(
-        long = "full-time",
-        help = "Like -l  --time-style=full-iso"
-    )]
+    #[arg(long = "full-time", help = "Like -l  --time-style=full-iso")]
     alias_list_time_full_iso: bool,
-    #[arg(
-        short = 'g',
-        help = "Like -l but does not list owner"
-    )]
+    #[arg(short = 'g', help = "Like -l but does not list owner")]
     list_no_owner: bool,
     #[arg(
         long = "group-directories-first",
@@ -154,101 +128,184 @@ struct Cli {
         value_name("PATTERN")
     )]
     hide: Option<String>,
-    #[arg(
-        long = "hyperlink",
-        help = "Hyperlink file names WHEN"
-    )]
-    file_type: Option<When>,
+    #[arg(long = "hyperlink", help = "Hyperlink file names WHEN")]
+    hyperlink_when: Option<When>,
     #[arg(
         long = "indicator-style",
-        help = "Append indicator with style WORD to entry names: none (default), slash (-p), file-type (--file-type), classify (-F)"
+        help = "Append indicator with style WORD to entry names: none (default), slash (-p), file-type (--file-type), classify (-F)", default_value("none")
     )]
     indicator_style: Option<IndicatorWord>,
-    // Done
     #[arg(
-        short = 'l',
-        long = "link",
-        help = "Hard link files instead of copying"
+        short = 'i',
+        long = "inode",
+        help = "Print the index number of each file"
     )]
-    link: bool,
+    inode: bool,
+    #[arg(
+        short = 'I',
+        long = "ignore",
+        help = "Do not list entries which matches PATTERN",
+        value_name("PATTERN")
+    )]
+    ignore_pattern: Option<String>,
+    #[arg(
+        short = 'k',
+        long = "kibibytes",
+        help = "Default to 1024-byte blocks for file system usage; used only with -s and directory totals"
+    )]
+    kibibytes: bool,
+    // Done
+    #[arg(short = 'l', help = "Use a long listing format")]
+    list: bool,
     //Done
     #[arg(
         short = 'L',
         long = "dereference",
-        help = "Always follow symbolic links in SOURCE",
-        conflicts_with("no_dereference")
+        help = "Use dereferenced symbolic link information in result instead of symbolic link itself"
     )]
     dereference: bool,
-    //Done
     #[arg(
-        short = 'P',
-        long = "no-dereference",
-        help = "Never follow symbolic links in SOURCE",
-        conflicts_with("dereference")
+        short = 'm',
+        help = "Fill width with a comma separated list of entries"
     )]
-    no_dereference: bool,
-    //Done
-    #[arg(short = 'p', help = "Same as --preserve=mode,ownership,timestamps")]
-    alias_mode_own_time: bool,
-    // Done
-    #[arg(long = "preserve", help = "Preserve the specified attributes")]
-    preserve: Option<Vec<Attributes>>,
-    // Done
-    #[arg(long = "no-preserve", help = "Don't preserve the specified attributes")]
-    no_preserve: Option<Vec<Attributes>>,
-    //Done
-    #[arg(long = "parents", help = "Use full source file name under DIRECTORY")]
-    parents: bool,
-    // Done
+    fill_comma: bool,
+    #[arg(
+        short = 'n',
+        long = "numeric-uid-grid",
+        help = "Like l, but list numeric user and group IDs"
+    )]
+    numeric_list: bool,
+    #[arg(
+        short = 'N',
+        long = "literal",
+        help = "Print entry names without quoting"
+    )]
+    literal: bool,
+    #[arg(
+        short = 'o',
+        help = "Like -l but do not list group information"
+    )]
+    no_group_list: bool,
+    #[arg(
+        short = 'p',
+        help = "Append / to directories",
+    )]
+    slash: bool,
+    #[arg(
+        short = 'q',
+        long = "hide-control-chars",
+        help = "Print ? instead of nongraphic characters",
+    )]
+    hide_control_chars: bool,
+    #[arg(
+        long = "show-control-chars",
+        help = "Show nongraphic as-is (No special visualization)",
+    )]
+    show_control_chars: bool,
+    #[arg(
+        short = 'Q',
+        long = "quote-name",
+        help = "Enclose entry names in double quotes",
+    )]
+    quote_name: bool,
+    #[arg(
+        long = "quoting-style",
+        help = "Use  quoting  style WORD for entry names: literal, locale, shell, shell-always, shell-escape, shell-escape-always, c, escape (overrides QUOTING_STYLE environment variable)",
+    )]
+    quoting_style: Option<QuotingWord>,
+    #[arg(
+        short = 'r',
+        long = "reverse",
+        help = "Reverse order while sorting",
+    )]
+    reverse: bool,
     #[arg(
         short = 'R',
         long = "recursive",
-        help = "Copy directories recursively",
-        short_alias('r')
+        help = "List subdirectories recursively",
     )]
     recursive: bool,
-    // Done
-    #[arg(
-        long = "remove-destination",
-        help = "Remove each existing destination file before attempting to open it (contrast with --force)"
-    )]
-    remove_destination: bool,
-    // Done
-    #[arg(
-        long = "strip-trailing-slashes",
-        help = "Remove any trailing slashes from each SOURCE argument"
-    )]
-    strip_trailing_slashes: bool,
-    // Done
     #[arg(
         short = 's',
-        long = "symbolic-link",
-        help = "Make symbolic links instead of copying"
+        long = "size",
+        help = "Print the allocated size of each file, in blocks",
     )]
-    symbolic_link: bool,
-    // Done
+    size_blocks: bool,
     #[arg(
         short = 'S',
-        long = "suffix",
-        help = "Specify a backup suffix (Text appended to the end of a backup filename)"
+        help = "Sort by file size, largest first",
     )]
-    suffix: Option<String>,
-
-    // Done
+    size_sort: bool,
+    #[arg(
+        long = "sort",
+        help = "Sort by WORD instead of name: none (-U), size (-S), time (-t), version (-V), extension (-X), width",
+    )]
+    sort_word: Option<SortWord>,
+    #[arg(
+        long = "time",
+        help = "Select which timestamp used to display or sort; access time (-u): atime, access, use; metadata change time (-c): ctime, status;  modified  time  (default): mtime, modification; birth time: birth, creation;\nWith -l, WORD determines which time to show; with --sort=time, sort by WORD (newest first)",
+    )]
+    time_display_sort: Option<TimeWord>,
+    #[arg(
+        long = "time-style",
+        help = "Time/Date format of -l; TIME_STYLE syntax: {TODO}",
+        value_name("TIME_STYLE")
+    )]
+    time_style: Option<String>,
     #[arg(
         short = 't',
-        long = "target-directory",
-        help = "Treat destination as a directory"
+        help = "Sort by time",
     )]
-    target_directory: bool,
-
-    // Done
+    time_sort: bool,
     #[arg(
         short = 'T',
-        long = "no-target-directory",
-        help = "Treat destination as a normal file"
+        long = "tabsize",
+        help = "Assume tabs stop at each COLS instead of 8",
+        value_name("COLS")
     )]
-    no_target_directory: bool,
+    tab_size: Option<u32>,
+    #[arg(
+        short = 'u',
+        help = "With -lt: sort by, and show, access time; with -l: show access time and sort by name; otherwise: sort by access time, newest first",
+    )]
+    sort_access_time: bool,
+    #[arg(
+        short = 'U',
+        help = "Do not sort; list entries in directory order",
+    )]
+    no_sort: bool,
+    #[arg(
+        short = 'v',
+        help = "Natural sort of (version) numbers within text",
+    )]
+    sort_version: bool,
+    #[arg(
+        short = 'w',
+        long = "width",
+        help = "Set output width to COLS, 0 means no limit",
+        value_name("COLS")
+    )]
+    output_width: Option<u32>,
+    #[arg(
+        short = 'x',
+        help = "List entries by lines instead of columns",
+    )]
+    list_columns: bool,
+    #[arg(
+        short = 'X',
+        help = "Sort alphabetically by entry extension",
+    )]
+    sort_extension: bool,
+    #[arg(
+        long = "zero",
+        help = "End each output line with NUL, not newline",
+    )]
+    end_nul: bool,
+    #[arg(
+        short = '1',
+        help = "List one file per line",
+    )]
+    one_line: bool,
     // Planned for later updates
     //#[arg(long = "update", help = "Control which existing files are updated")]
     //update: Option<Update>,
@@ -303,20 +360,32 @@ enum BlockSize {
 #[derive(clap::ValueEnum, Clone, Debug, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 enum When {
     #[default]
-    Always, 
-    Auto, 
-    Never
+    Always,
+    Auto,
+    Never,
 }
 
 #[derive(clap::ValueEnum, Clone, Debug, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum FormatWord {
-    Across, 
-    Commas, 
+    Across,
+    Commas,
     Horizontal,
     Long,
     SingleColumn,
     Verbose,
-    Vertical
+    Vertical,
+}
+
+#[derive(clap::ValueEnum, Clone, Debug, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum QuotingWord {
+    Literal,
+    Locale,
+    Shell,
+    ShellAlways,
+    ShellEscape,
+    ShellEscapeAlways,
+    C,
+    Escape,
 }
 
 #[derive(clap::ValueEnum, Clone, Debug, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -324,7 +393,24 @@ enum IndicatorWord {
     None,
     Slash,
     FileType,
-    Classify
+    Classify,
+}
+
+#[derive(clap::ValueEnum, Clone, Debug, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum SortWord {
+    None,
+    Size,
+    Time,
+    Version,
+    Extension,
+    Width
+}
+
+#[derive(clap::ValueEnum, Clone, Debug, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum TimeWord {
+    AccessTime,
+    MetadataChangeTime,
+    ModifiedTime
 }
 
 pub fn main() {
