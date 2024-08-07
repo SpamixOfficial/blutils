@@ -1,14 +1,20 @@
-use std::{default, env::args, path::PathBuf};
+use std::{default, env::args, path::{Path, PathBuf}, process::exit};
 
 use clap::{Args, Parser};
+use walkdir::WalkDir;
 
 const PROGRAM: &str = "ls";
 
 #[derive(Parser, Debug, Clone)]
-#[command(version, about = "List files in source!", author = "Alexander Hübner", disable_help_flag = true)]
+#[command(
+    version,
+    about = "List files in source!",
+    author = "Alexander Hübner",
+    disable_help_flag = true
+)]
 struct Cli {
-    #[clap(value_parser, required = true)]
-    file: Vec<PathBuf>,
+    #[clap(value_parser, required = true, value_name("FILE"))]
+    files: Vec<PathBuf>,
 
     //Done
     #[arg(
@@ -132,7 +138,8 @@ struct Cli {
     hyperlink_when: Option<When>,
     #[arg(
         long = "indicator-style",
-        help = "Append indicator with style WORD to entry names: none (default), slash (-p), file-type (--file-type), classify (-F)", default_value("none")
+        help = "Append indicator with style WORD to entry names: none (default), slash (-p), file-type (--file-type), classify (-F)",
+        default_value("none")
     )]
     indicator_style: Option<IndicatorWord>,
     #[arg(
@@ -181,69 +188,56 @@ struct Cli {
         help = "Print entry names without quoting"
     )]
     literal: bool,
-    #[arg(
-        short = 'o',
-        help = "Like -l but do not list group information"
-    )]
+    #[arg(short = 'o', help = "Like -l but do not list group information")]
     no_group_list: bool,
-    #[arg(
-        short = 'p',
-        help = "Append / to directories",
-    )]
+    #[arg(short = 'p', help = "Append / to directories")]
     slash: bool,
     #[arg(
         short = 'q',
         long = "hide-control-chars",
-        help = "Print ? instead of nongraphic characters",
+        help = "Print ? instead of nongraphic characters"
     )]
     hide_control_chars: bool,
     #[arg(
         long = "show-control-chars",
-        help = "Show nongraphic as-is (No special visualization)",
+        help = "Show nongraphic as-is (No special visualization)"
     )]
     show_control_chars: bool,
     #[arg(
         short = 'Q',
         long = "quote-name",
-        help = "Enclose entry names in double quotes",
+        help = "Enclose entry names in double quotes"
     )]
     quote_name: bool,
     #[arg(
         long = "quoting-style",
-        help = "Use  quoting  style WORD for entry names: literal, locale, shell, shell-always, shell-escape, shell-escape-always, c, escape (overrides QUOTING_STYLE environment variable)",
+        help = "Use  quoting  style WORD for entry names: literal, locale, shell, shell-always, shell-escape, shell-escape-always, c, escape (overrides QUOTING_STYLE environment variable)"
     )]
     quoting_style: Option<QuotingWord>,
-    #[arg(
-        short = 'r',
-        long = "reverse",
-        help = "Reverse order while sorting",
-    )]
+    #[arg(short = 'r', long = "reverse", help = "Reverse order while sorting")]
     reverse: bool,
     #[arg(
         short = 'R',
         long = "recursive",
-        help = "List subdirectories recursively",
+        help = "List subdirectories recursively"
     )]
     recursive: bool,
     #[arg(
         short = 's',
         long = "size",
-        help = "Print the allocated size of each file, in blocks",
+        help = "Print the allocated size of each file, in blocks"
     )]
     size_blocks: bool,
-    #[arg(
-        short = 'S',
-        help = "Sort by file size, largest first",
-    )]
+    #[arg(short = 'S', help = "Sort by file size, largest first")]
     size_sort: bool,
     #[arg(
         long = "sort",
-        help = "Sort by WORD instead of name: none (-U), size (-S), time (-t), version (-V), extension (-X), width",
+        help = "Sort by WORD instead of name: none (-U), size (-S), time (-t), version (-V), extension (-X), width"
     )]
     sort_word: Option<SortWord>,
     #[arg(
         long = "time",
-        help = "Select which timestamp used to display or sort; access time (-u): atime, access, use; metadata change time (-c): ctime, status;  modified  time  (default): mtime, modification; birth time: birth, creation;\nWith -l, WORD determines which time to show; with --sort=time, sort by WORD (newest first)",
+        help = "Select which timestamp used to display or sort; access time (-u): atime, access, use; metadata change time (-c): ctime, status;  modified  time  (default): mtime, modification; birth time: birth, creation;\nWith -l, WORD determines which time to show; with --sort=time, sort by WORD (newest first)"
     )]
     time_display_sort: Option<TimeWord>,
     #[arg(
@@ -252,10 +246,7 @@ struct Cli {
         value_name("TIME_STYLE")
     )]
     time_style: Option<String>,
-    #[arg(
-        short = 't',
-        help = "Sort by time",
-    )]
+    #[arg(short = 't', help = "Sort by time")]
     time_sort: bool,
     #[arg(
         short = 'T',
@@ -266,18 +257,12 @@ struct Cli {
     tab_size: Option<u32>,
     #[arg(
         short = 'u',
-        help = "With -lt: sort by, and show, access time; with -l: show access time and sort by name; otherwise: sort by access time, newest first",
+        help = "With -lt: sort by, and show, access time; with -l: show access time and sort by name; otherwise: sort by access time, newest first"
     )]
     sort_access_time: bool,
-    #[arg(
-        short = 'U',
-        help = "Do not sort; list entries in directory order",
-    )]
+    #[arg(short = 'U', help = "Do not sort; list entries in directory order")]
     no_sort: bool,
-    #[arg(
-        short = 'v',
-        help = "Natural sort of (version) numbers within text",
-    )]
+    #[arg(short = 'v', help = "Natural sort of (version) numbers within text")]
     sort_version: bool,
     #[arg(
         short = 'w',
@@ -286,25 +271,13 @@ struct Cli {
         value_name("COLS")
     )]
     output_width: Option<u32>,
-    #[arg(
-        short = 'x',
-        help = "List entries by lines instead of columns",
-    )]
+    #[arg(short = 'x', help = "List entries by lines instead of columns")]
     list_columns: bool,
-    #[arg(
-        short = 'X',
-        help = "Sort alphabetically by entry extension",
-    )]
+    #[arg(short = 'X', help = "Sort alphabetically by entry extension")]
     sort_extension: bool,
-    #[arg(
-        long = "zero",
-        help = "End each output line with NUL, not newline",
-    )]
+    #[arg(long = "zero", help = "End each output line with NUL, not newline")]
     end_nul: bool,
-    #[arg(
-        short = '1',
-        help = "List one file per line",
-    )]
+    #[arg(short = '1', help = "List one file per line")]
     one_line: bool,
     // Planned for later updates
     //#[arg(long = "update", help = "Control which existing files are updated")]
@@ -405,14 +378,14 @@ enum SortWord {
     Time,
     Version,
     Extension,
-    Width
+    Width,
 }
 
 #[derive(clap::ValueEnum, Clone, Debug, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum TimeWord {
     AccessTime,
     MetadataChangeTime,
-    ModifiedTime
+    ModifiedTime,
 }
 
 pub fn main() {
@@ -428,8 +401,31 @@ pub fn main() {
     } else {
         cli = Cli::parse();
     };
+    for file in &cli.files {
+        ls(&cli, file);
+    }
 }
 
 fn ls(cli: &Cli, p: &PathBuf) {
+    let mut dir = WalkDir::new(p); 
+    dbg!(&p); 
+    if !cli.recursive {
+        dir = dir.max_depth(1)
+    }
+    let term_size = termsize::get();
+    let entries: Vec<String> = dir.into_iter().filter_map(|e| e.ok()).map(|e| e.into_path().file_name().unwrap().to_str().unwrap().to_string()).collect();
+    
+    // If no terminal size we can assume it was called either as a background process or some other
+    // non-graphical process
+    if term_size.is_none() {
+        entries.iter().for_each(|entry| print!("{entry}"));
+        print!("\n");
+        exit(0);
+    }
 
+    let longest_entry = entries.iter().map(|x| x.clone().chars().count()).max().unwrap_or(0);
+    let entry_per_line = (longest_entry+2)/term_size.unwrap().cols as usize;
+    for line in entries.chunks(entry_per_line).collect() {
+
+    };
 }
