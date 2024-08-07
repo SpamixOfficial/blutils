@@ -7,8 +7,9 @@ use std::{
     process::exit,
 };
 
-use crate::utils::{log, prompt, wrap, PathExtras};
+use crate::utils::{log, prompt, wrap, PathExtras, PathType};
 use clap::{Args, Parser};
+use libc::S_ISVTX;
 use walkdir::WalkDir;
 
 const PROGRAM: &str = "rm";
@@ -205,9 +206,6 @@ fn rm(cli: &Cli, p: &PathBuf) {
         exit(0);
     };
 
-    // Handle destructive options
-    Some(destructive_handle(cli, Some(p)));
-
     if !cli.recursive {
         normal_rm(cli, p);
     } else {
@@ -216,6 +214,8 @@ fn rm(cli: &Cli, p: &PathBuf) {
 }
 
 fn normal_rm(cli: &Cli, p: &PathBuf) {
+    // Handle destructive options
+    Some(destructive_handle(cli, Some(p)));
     log(
         cli.verbose,
         format!("Removing {} {}...", p.type_display(), p.display()),
@@ -238,31 +238,29 @@ fn recursive_rm(cli: &Cli, p: &PathBuf) {
 
     for entry in dir.into_iter().filter_map(|e| e.ok()) {
         let path = entry.path();
+        // Handle destructive options
+        destructive_handle(cli, Some(&PathBuf::from(path)));
         log(
             cli.verbose,
             format!("Removing {} {}...", path.type_display(), path.display()),
         );
-        dbg!(format!(
-            "{}",
-            &path.metadata().unwrap().permissions().mode() & 0o777
-        ));
-        /*match path.ptype() {
-            PathType::File | PathType::Symlink => wrap(remove_file(path), PROGRAM),
-            PathType::Directory => wrap(remove_dir(path), PROGRAM)
-        }*/
+        match path.ptype() {
+            PathType::File | PathType::Symlink => wrap(remove_file(path), PROGRAM, false),
+            PathType::Directory => wrap(remove_dir(path), PROGRAM, false)
+        }
     }
 }
 
 fn write_protection(p: &PathBuf) -> bool {
-    let perms = get_mode(p);
-    if perms.owner == 4 && perms.other == 4 && perms.group == 4 {
+    //let perms = get_mode(p);
+    if (p.metadata().unwrap().permissions().mode() & S_ISVTX) == 0 {
         return true;
     } else {
         return false;
     }
 }
 
-fn get_mode(p: &PathBuf) -> FilePerm {
+/*fn get_mode(p: &PathBuf) -> FilePerm {
     let raw_mode = format!("{:o}", &p.metadata().unwrap().permissions().mode());
     return {
         let ints: Vec<u32> = raw_mode
@@ -283,4 +281,4 @@ struct FilePerm {
     owner: u32,
     group: u32,
     other: u32,
-}
+}*/

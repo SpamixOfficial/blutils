@@ -5,10 +5,10 @@ use clap::{Args, Parser};
 const PROGRAM: &str = "ls";
 
 #[derive(Parser, Debug, Clone)]
-#[command(version, about = "List files in source!", author = "Alexander Hübner")]
+#[command(version, about = "List files in source!", author = "Alexander Hübner", disable_help_flag = true)]
 struct Cli {
     #[clap(value_parser, required = true)]
-    source: Vec<PathBuf>,
+    file: Vec<PathBuf>,
 
     //Done
     #[arg(
@@ -42,7 +42,7 @@ struct Cli {
     block_size: Option<BlockSize>,
     // Done
     #[arg(
-        short = 'b',
+        short = 'B',
         long = "ignore-backups",
         help = "Do not list entries ending with ~ or a specified suffix",
         value_name("suffix"),
@@ -309,8 +309,10 @@ struct Cli {
     // Planned for later updates
     //#[arg(long = "update", help = "Control which existing files are updated")]
     //update: Option<Update>,
-    #[arg(short = 'v', long = "verbose", help = "explain whats being done")]
+    #[arg(long = "verbose", help = "explain whats being done")]
     verbose: bool,
+    #[clap(long, action = clap::ArgAction::HelpLong)]
+    help: Option<bool>,
 }
 
 #[derive(clap::ValueEnum, Clone, Debug, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -426,4 +428,8 @@ pub fn main() {
     } else {
         cli = Cli::parse();
     };
+}
+
+fn ls(cli: &Cli, p: &PathBuf) {
+
 }
