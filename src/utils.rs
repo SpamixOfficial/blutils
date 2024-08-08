@@ -1,7 +1,7 @@
 use std::{
-    any::Any, fmt::Display, io::{Error, Read, Result}, path::Path, process::exit
+    any::Any, fmt::Display, io::{Error, Read, Result}, os::unix::fs::PermissionsExt, path::Path, process::exit
 };
-use libc::getuid;
+use libc::{getuid, S_IXGRP, S_IXUSR};
 
 pub fn log<T: Display>(verbose: bool, message: T) {
     if verbose {
@@ -53,6 +53,8 @@ impl PathExtras for Path {
             PathType::Directory
         } else if self.is_symlink() {
             PathType::Symlink
+        } else if (self.metadata().unwrap().permissions().mode() & (S_IXUSR | S_IXGRP)) != 0 {
+            PathType::Executable
         } else {
             PathType::File
         }
@@ -62,7 +64,8 @@ impl PathExtras for Path {
 pub enum PathType {
     File,
     Directory,
-    Symlink
+    Symlink,
+    Executable
 }
 
 pub fn wrap<T: Any, M: Display>(result: Result<T>, prog: M, silent: bool) -> T {

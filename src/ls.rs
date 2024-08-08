@@ -4,6 +4,10 @@ use std::{
     process::exit,
 };
 
+use crate::utils::{PathExtras, PathType};
+
+use ansi_term::{Colour, Style};
+
 use clap::{Args, Parser};
 use walkdir::WalkDir;
 
@@ -17,7 +21,7 @@ const PROGRAM: &str = "ls";
     disable_help_flag = true
 )]
 struct Cli {
-    #[clap(value_parser, required = true, value_name("FILE"))]
+    #[clap(value_parser, value_name("FILE"), default_values = ["."])]
     files: Vec<PathBuf>,
 
     //Done
@@ -176,101 +180,101 @@ struct Cli {
     )]
     dereference: bool,
     // TODO
-	#[arg(
+    #[arg(
         short = 'm',
         help = "Fill width with a comma separated list of entries"
     )]
     fill_comma: bool,
     // TODO
-	#[arg(
+    #[arg(
         short = 'n',
         long = "numeric-uid-grid",
         help = "Like l, but list numeric user and group IDs"
     )]
     numeric_list: bool,
     // TODO
-	#[arg(
+    #[arg(
         short = 'N',
         long = "literal",
         help = "Print entry names without quoting"
     )]
     literal: bool,
     // TODO
-	#[arg(short = 'o', help = "Like -l but do not list group information")]
+    #[arg(short = 'o', help = "Like -l but do not list group information")]
     no_group_list: bool,
     // TODO
-	#[arg(short = 'p', help = "Append / to directories")]
+    #[arg(short = 'p', help = "Append / to directories")]
     slash: bool,
     // TODO
-	#[arg(
+    #[arg(
         short = 'q',
         long = "hide-control-chars",
         help = "Print ? instead of nongraphic characters"
     )]
     hide_control_chars: bool,
     // TODO
-	#[arg(
+    #[arg(
         long = "show-control-chars",
         help = "Show nongraphic as-is (No special visualization)"
     )]
     show_control_chars: bool,
     // TODO
-	#[arg(
+    #[arg(
         short = 'Q',
         long = "quote-name",
         help = "Enclose entry names in double quotes"
     )]
     quote_name: bool,
     // TODO
-	#[arg(
+    #[arg(
         long = "quoting-style",
         help = "Use  quoting  style WORD for entry names: literal, locale, shell, shell-always, shell-escape, shell-escape-always, c, escape (overrides QUOTING_STYLE environment variable)"
     )]
     quoting_style: Option<QuotingWord>,
     // TODO
-	#[arg(short = 'r', long = "reverse", help = "Reverse order while sorting")]
+    #[arg(short = 'r', long = "reverse", help = "Reverse order while sorting")]
     reverse: bool,
     // TODO
-	#[arg(
+    #[arg(
         short = 'R',
         long = "recursive",
         help = "List subdirectories recursively"
     )]
     recursive: bool,
     // TODO
-	#[arg(
+    #[arg(
         short = 's',
         long = "size",
         help = "Print the allocated size of each file, in blocks"
     )]
     size_blocks: bool,
     // TODO
-	#[arg(short = 'S', help = "Sort by file size, largest first")]
+    #[arg(short = 'S', help = "Sort by file size, largest first")]
     size_sort: bool,
     // TODO
-	#[arg(
+    #[arg(
         long = "sort",
         help = "Sort by WORD instead of name: none (-U), size (-S), time (-t), version (-V), extension (-X), width"
     )]
     sort_word: Option<SortWord>,
     // TODO
-	#[arg(
+    #[arg(
         long = "time",
         help = "Select which timestamp used to display or sort; access time (-u): atime, access, use; metadata change time (-c): ctime, status;  modified  time  (default): mtime, modification; birth time: birth, creation;\nWith -l, WORD determines which time to show; with --sort=time, sort by WORD (newest first)"
     )]
     time_display_sort: Option<TimeWord>,
     // TODO
-	#[arg(
+    #[arg(
         long = "time-style",
         help = "Time/Date format of -l; TIME_STYLE syntax: {TODO}",
         value_name("TIME_STYLE")
     )]
     time_style: Option<String>,
     // TODO
-	#[arg(short = 't', help = "Sort by time")]
+    #[arg(short = 't', help = "Sort by time")]
     time_sort: bool,
     // TODO
-	#[arg(
+    #[arg(
         short = 'T',
         long = "tabsize",
         help = "Assume tabs stop at each COLS instead of 8",
@@ -278,19 +282,19 @@ struct Cli {
     )]
     tab_size: Option<u32>,
     // TODO
-	#[arg(
+    #[arg(
         short = 'u',
         help = "With -lt: sort by, and show, access time; with -l: show access time and sort by name; otherwise: sort by access time, newest first"
     )]
     sort_access_time: bool,
-    // TODO
-	#[arg(short = 'U', help = "Do not sort; list entries in directory order")]
+    // Done
+    #[arg(short = 'U', help = "Do not sort; list entries in directory order")]
     no_sort: bool,
     // TODO
-	#[arg(short = 'v', help = "Natural sort of (version) numbers within text")]
+    #[arg(short = 'v', help = "Natural sort of (version) numbers within text")]
     sort_version: bool,
     // TODO
-	#[arg(
+    #[arg(
         short = 'w',
         long = "width",
         help = "Set output width to COLS, 0 means no limit",
@@ -298,16 +302,16 @@ struct Cli {
     )]
     output_width: Option<u32>,
     // TODO
-	#[arg(short = 'x', help = "List entries by lines instead of columns")]
+    #[arg(short = 'x', help = "List entries by lines instead of columns")]
     list_columns: bool,
     // TODO
-	#[arg(short = 'X', help = "Sort alphabetically by entry extension")]
+    #[arg(short = 'X', help = "Sort alphabetically by entry extension")]
     sort_extension: bool,
     // TODO
-	#[arg(long = "zero", help = "End each output line with NUL, not newline")]
+    #[arg(long = "zero", help = "End each output line with NUL, not newline")]
     end_nul: bool,
     // TODO
-	#[arg(short = '1', help = "List one file per line")]
+    #[arg(short = '1', help = "List one file per line")]
     one_line: bool,
     // Planned for later updates
     //#[arg(long = "update", help = "Control which existing files are updated")]
@@ -442,9 +446,8 @@ fn ls(cli: &Cli, p: &PathBuf) {
         dir = dir.max_depth(1)
     }
 
-    let term_size = termsize::get();
     // First we get and collect all the entries into a vector of strings
-    let mut entries: Vec<String> = dir
+    let entries: Vec<String> = dir
         .into_iter()
         .filter_map(|e| e.ok())
         .map(|e| {
@@ -456,10 +459,31 @@ fn ls(cli: &Cli, p: &PathBuf) {
                 .to_string()
         })
         .collect();
-    
-    // Default sorting, will fix when I start actually working on the sorting options
-    entries.sort_by(|a, b| a.to_lowercase().cmp(&b.to_lowercase()));
+    // Get longest entry
+    let longest_entry = entries
+        .clone()
+        .iter()
+        .map(|x| x.clone().chars().count())
+        .max()
+        .unwrap_or(0);
+    // Create the lines variable we will use later
+    let lines = treat_entries(cli, entries);
 
+    // Finally trigger the right function
+    if !cli.recursive {
+        normal_list(cli, lines, longest_entry);
+    }
+}
+
+fn treat_entries(cli: &Cli, entries_list: Vec<String>) -> Vec<Vec<String>> {
+    let term_size = termsize::get();
+    let mut entries = entries_list;
+
+    // Here we start treating the vector and variables
+    // Sorting
+    if !cli.no_sort {
+        entries.sort_by(|a, b| a.to_lowercase().cmp(&b.to_lowercase()));
+    }
     // If the all or almost all mode isn't activated we need to do some filtering
     if !cli.all || !cli.almost_all {
         entries = entries
@@ -471,6 +495,7 @@ fn ls(cli: &Cli, p: &PathBuf) {
         entries.insert(1, String::from(".."));
     }
 
+    // We start splitting up here
     // If no terminal size we can assume it was called either as a background process or some other
     // non-graphical process
     if term_size.is_none() {
@@ -487,29 +512,55 @@ fn ls(cli: &Cli, p: &PathBuf) {
 
     // Get the maximum entries per line and use this to create a new Vec<Vec<String>>
     let entry_per_line = term_size.unwrap().cols as usize / (longest_entry + 2);
-    let lines = entries
+    entries
         .chunks(entry_per_line)
         .map(|s| s.into())
-        .collect::<Vec<Vec<String>>>();
-
-    // Finally trigger the right function
-    if !cli.recursive {
-        normal_list(cli, lines, longest_entry);
-    }
+        .collect::<Vec<Vec<String>>>()
 }
 
 fn normal_list(cli: &Cli, lines: Vec<Vec<String>>, longest_entry: usize) {
     if lines.len() > 1 {
         for line in lines {
             for entry in line {
-                print!("{: <width$}", entry, width = longest_entry + 2);
+                let style = match PathBuf::from(&entry).as_path().ptype() {
+                    PathType::Directory => Style::new().bold().fg(Colour::Blue),
+                    PathType::Executable => Style::new().bold().fg(Colour::Green),
+                    PathType::Symlink => Style::new().bold().fg(Colour::Cyan),
+                    _ => Style::new(),
+                };
+                print!(
+                    "{: <width$}{}",
+                    style.paint(&entry),
+                    match PathBuf::from(&entry).as_path().ptype() {
+                        PathType::Symlink => "@",
+                        PathType::Directory => "/",
+                        PathType::Executable => "*",
+                        _ => "",
+                    },
+                    width = longest_entry + 2
+                );
             }
             print!("\n");
         }
     } else {
         for line in lines {
             for entry in line {
-                print!("{}  ", entry);
+                let style = match PathBuf::from(&entry).as_path().ptype() {
+                    PathType::Directory => Style::new().bold().fg(Colour::Blue),
+                    PathType::Executable => Style::new().bold().fg(Colour::Green),
+                    PathType::Symlink => Style::new().bold().fg(Colour::Cyan),
+                    _ => Style::new(),
+                };
+                print!(
+                    "{}{}  ",
+                    style.paint(&entry),
+                    match PathBuf::from(&entry).as_path().ptype() {
+                        PathType::Symlink => "@",
+                        PathType::Directory => "/",
+                        PathType::Executable => "*",
+                        _ => "",
+                    }
+                );
             }
             print!("\n");
         }

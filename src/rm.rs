@@ -245,8 +245,8 @@ fn recursive_rm(cli: &Cli, p: &PathBuf) {
             format!("Removing {} {}...", path.type_display(), path.display()),
         );
         match path.ptype() {
-            PathType::File | PathType::Symlink => wrap(remove_file(path), PROGRAM, false),
-            PathType::Directory => wrap(remove_dir(path), PROGRAM, false)
+            PathType::Directory => wrap(remove_dir(path), PROGRAM, false),
+            _ => wrap(remove_file(path), PROGRAM, false),
         }
     }
 }
