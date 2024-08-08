@@ -1,4 +1,8 @@
-use std::{default, env::args, path::{Path, PathBuf}, process::exit};
+use std::{
+    env::args,
+    path::{Path, PathBuf},
+    process::exit,
+};
 
 use clap::{Args, Parser};
 use walkdir::WalkDir;
@@ -31,10 +35,10 @@ struct Cli {
     )]
     almost_all: bool,
 
-    //Done
+    //TODO
     #[arg(long = "author", help = "With -l, print the author of each file")]
     author: bool,
-    //Done
+    //TODO
     #[arg(
         short = 'b',
         long = "escape",
@@ -46,7 +50,7 @@ struct Cli {
         help = "With -l, scale sizes by SIZE when printing them; e.g., '--block-size=M'; see SIZE format below"
     )]
     block_size: Option<BlockSize>,
-    // Done
+    // TODO
     #[arg(
         short = 'B',
         long = "ignore-backups",
@@ -161,123 +165,149 @@ struct Cli {
         help = "Default to 1024-byte blocks for file system usage; used only with -s and directory totals"
     )]
     kibibytes: bool,
-    // Done
+    // TODO
     #[arg(short = 'l', help = "Use a long listing format")]
     list: bool,
-    //Done
+    //TODO
     #[arg(
         short = 'L',
         long = "dereference",
         help = "Use dereferenced symbolic link information in result instead of symbolic link itself"
     )]
     dereference: bool,
-    #[arg(
+    // TODO
+	#[arg(
         short = 'm',
         help = "Fill width with a comma separated list of entries"
     )]
     fill_comma: bool,
-    #[arg(
+    // TODO
+	#[arg(
         short = 'n',
         long = "numeric-uid-grid",
         help = "Like l, but list numeric user and group IDs"
     )]
     numeric_list: bool,
-    #[arg(
+    // TODO
+	#[arg(
         short = 'N',
         long = "literal",
         help = "Print entry names without quoting"
     )]
     literal: bool,
-    #[arg(short = 'o', help = "Like -l but do not list group information")]
+    // TODO
+	#[arg(short = 'o', help = "Like -l but do not list group information")]
     no_group_list: bool,
-    #[arg(short = 'p', help = "Append / to directories")]
+    // TODO
+	#[arg(short = 'p', help = "Append / to directories")]
     slash: bool,
-    #[arg(
+    // TODO
+	#[arg(
         short = 'q',
         long = "hide-control-chars",
         help = "Print ? instead of nongraphic characters"
     )]
     hide_control_chars: bool,
-    #[arg(
+    // TODO
+	#[arg(
         long = "show-control-chars",
         help = "Show nongraphic as-is (No special visualization)"
     )]
     show_control_chars: bool,
-    #[arg(
+    // TODO
+	#[arg(
         short = 'Q',
         long = "quote-name",
         help = "Enclose entry names in double quotes"
     )]
     quote_name: bool,
-    #[arg(
+    // TODO
+	#[arg(
         long = "quoting-style",
         help = "Use  quoting  style WORD for entry names: literal, locale, shell, shell-always, shell-escape, shell-escape-always, c, escape (overrides QUOTING_STYLE environment variable)"
     )]
     quoting_style: Option<QuotingWord>,
-    #[arg(short = 'r', long = "reverse", help = "Reverse order while sorting")]
+    // TODO
+	#[arg(short = 'r', long = "reverse", help = "Reverse order while sorting")]
     reverse: bool,
-    #[arg(
+    // TODO
+	#[arg(
         short = 'R',
         long = "recursive",
         help = "List subdirectories recursively"
     )]
     recursive: bool,
-    #[arg(
+    // TODO
+	#[arg(
         short = 's',
         long = "size",
         help = "Print the allocated size of each file, in blocks"
     )]
     size_blocks: bool,
-    #[arg(short = 'S', help = "Sort by file size, largest first")]
+    // TODO
+	#[arg(short = 'S', help = "Sort by file size, largest first")]
     size_sort: bool,
-    #[arg(
+    // TODO
+	#[arg(
         long = "sort",
         help = "Sort by WORD instead of name: none (-U), size (-S), time (-t), version (-V), extension (-X), width"
     )]
     sort_word: Option<SortWord>,
-    #[arg(
+    // TODO
+	#[arg(
         long = "time",
         help = "Select which timestamp used to display or sort; access time (-u): atime, access, use; metadata change time (-c): ctime, status;  modified  time  (default): mtime, modification; birth time: birth, creation;\nWith -l, WORD determines which time to show; with --sort=time, sort by WORD (newest first)"
     )]
     time_display_sort: Option<TimeWord>,
-    #[arg(
+    // TODO
+	#[arg(
         long = "time-style",
         help = "Time/Date format of -l; TIME_STYLE syntax: {TODO}",
         value_name("TIME_STYLE")
     )]
     time_style: Option<String>,
-    #[arg(short = 't', help = "Sort by time")]
+    // TODO
+	#[arg(short = 't', help = "Sort by time")]
     time_sort: bool,
-    #[arg(
+    // TODO
+	#[arg(
         short = 'T',
         long = "tabsize",
         help = "Assume tabs stop at each COLS instead of 8",
         value_name("COLS")
     )]
     tab_size: Option<u32>,
-    #[arg(
+    // TODO
+	#[arg(
         short = 'u',
         help = "With -lt: sort by, and show, access time; with -l: show access time and sort by name; otherwise: sort by access time, newest first"
     )]
     sort_access_time: bool,
-    #[arg(short = 'U', help = "Do not sort; list entries in directory order")]
+    // TODO
+	#[arg(short = 'U', help = "Do not sort; list entries in directory order")]
     no_sort: bool,
-    #[arg(short = 'v', help = "Natural sort of (version) numbers within text")]
+    // TODO
+	#[arg(short = 'v', help = "Natural sort of (version) numbers within text")]
     sort_version: bool,
-    #[arg(
+    // TODO
+	#[arg(
         short = 'w',
         long = "width",
         help = "Set output width to COLS, 0 means no limit",
         value_name("COLS")
     )]
     output_width: Option<u32>,
-    #[arg(short = 'x', help = "List entries by lines instead of columns")]
+    // TODO
+	#[arg(short = 'x', help = "List entries by lines instead of columns")]
     list_columns: bool,
-    #[arg(short = 'X', help = "Sort alphabetically by entry extension")]
+    // TODO
+	#[arg(short = 'X', help = "Sort alphabetically by entry extension")]
     sort_extension: bool,
-    #[arg(long = "zero", help = "End each output line with NUL, not newline")]
+    // TODO
+	#[arg(long = "zero", help = "End each output line with NUL, not newline")]
     end_nul: bool,
-    #[arg(short = '1', help = "List one file per line")]
+    // TODO
+	#[arg(short = '1', help = "List one file per line")]
     one_line: bool,
     // Planned for later updates
     //#[arg(long = "update", help = "Control which existing files are updated")]
@@ -407,14 +437,40 @@ pub fn main() {
 }
 
 fn ls(cli: &Cli, p: &PathBuf) {
-    let mut dir = WalkDir::new(p); 
-    dbg!(&p); 
+    let mut dir = WalkDir::new(p).min_depth(1);
     if !cli.recursive {
         dir = dir.max_depth(1)
     }
+
     let term_size = termsize::get();
-    let entries: Vec<String> = dir.into_iter().filter_map(|e| e.ok()).map(|e| e.into_path().file_name().unwrap().to_str().unwrap().to_string()).collect();
+    // First we get and collect all the entries into a vector of strings
+    let mut entries: Vec<String> = dir
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .map(|e| {
+            e.into_path()
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .to_string()
+        })
+        .collect();
     
+    // Default sorting, will fix when I start actually working on the sorting options
+    entries.sort_by(|a, b| a.to_lowercase().cmp(&b.to_lowercase()));
+
+    // If the all or almost all mode isn't activated we need to do some filtering
+    if !cli.all || !cli.almost_all {
+        entries = entries
+            .into_iter()
+            .filter_map(|f| if !f.starts_with(".") { Some(f) } else { None })
+            .collect();
+    } else if cli.all {
+        entries.insert(0, String::from("."));
+        entries.insert(1, String::from(".."));
+    }
+
     // If no terminal size we can assume it was called either as a background process or some other
     // non-graphical process
     if term_size.is_none() {
@@ -423,9 +479,39 @@ fn ls(cli: &Cli, p: &PathBuf) {
         exit(0);
     }
 
-    let longest_entry = entries.iter().map(|x| x.clone().chars().count()).max().unwrap_or(0);
-    let entry_per_line = (longest_entry+2)/term_size.unwrap().cols as usize;
-    for line in entries.chunks(entry_per_line).collect() {
+    let longest_entry = entries
+        .iter()
+        .map(|x| x.clone().chars().count())
+        .max()
+        .unwrap_or(0);
 
-    };
+    // Get the maximum entries per line and use this to create a new Vec<Vec<String>>
+    let entry_per_line = term_size.unwrap().cols as usize / (longest_entry + 2);
+    let lines = entries
+        .chunks(entry_per_line)
+        .map(|s| s.into())
+        .collect::<Vec<Vec<String>>>();
+
+    // Finally trigger the right function
+    if !cli.recursive {
+        normal_list(cli, lines, longest_entry);
+    }
+}
+
+fn normal_list(cli: &Cli, lines: Vec<Vec<String>>, longest_entry: usize) {
+    if lines.len() > 1 {
+        for line in lines {
+            for entry in line {
+                print!("{: <width$}", entry, width = longest_entry + 2);
+            }
+            print!("\n");
+        }
+    } else {
+        for line in lines {
+            for entry in line {
+                print!("{}  ", entry);
+            }
+            print!("\n");
+        }
+    }
 }
