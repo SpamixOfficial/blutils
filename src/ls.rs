@@ -447,23 +447,23 @@ fn ls(cli: &Cli, p: &PathBuf) {
     }
 
     // First we get and collect all the entries into a vector of strings
-    let entries: Vec<String> = dir
+    let entries: Vec<(String, PathBuf)> = dir
         .into_iter()
         .filter_map(|e| e.ok())
         .map(|e| {
-            e.into_path()
+            (e.clone().into_path()
                 .file_name()
                 .unwrap()
                 .to_str()
                 .unwrap()
-                .to_string()
+                .to_string(), e.into_path())
         })
         .collect();
     // Get longest entry
     let longest_entry = entries
         .clone()
         .iter()
-        .map(|x| x.clone().chars().count())
+        .map(|x| x.0.clone().chars().count())
         .max()
         .unwrap_or(0);
     // Create the lines variable we will use later
@@ -475,38 +475,38 @@ fn ls(cli: &Cli, p: &PathBuf) {
     }
 }
 
-fn treat_entries(cli: &Cli, entries_list: Vec<String>) -> Vec<Vec<String>> {
+fn treat_entries(cli: &Cli, entries_list: Vec<(String, PathBuf)>) -> Vec<Vec<(String, PathBuf)>> {
     let term_size = termsize::get();
     let mut entries = entries_list;
 
     // Here we start treating the vector and variables
     // Sorting
     if !cli.no_sort {
-        entries.sort_by(|a, b| a.to_lowercase().cmp(&b.to_lowercase()));
+        entries.sort_by(|a, b| a.0.to_lowercase().cmp(&b.0.to_lowercase()));
     }
     // If the all or almost all mode isn't activated we need to do some filtering
     if !cli.all || !cli.almost_all {
         entries = entries
             .into_iter()
-            .filter_map(|f| if !f.starts_with(".") { Some(f) } else { None })
+            .filter_map(|f| if !f.0.starts_with(".") { Some(f) } else { None })
             .collect();
     } else if cli.all {
-        entries.insert(0, String::from("."));
-        entries.insert(1, String::from(".."));
+        entries.insert(0, (String::from("."), PathBuf::from("./")));
+        entries.insert(1, (String::from(".."), PathBuf::from("../")));
     }
 
     // We start splitting up here
     // If no terminal size we can assume it was called either as a background process or some other
     // non-graphical process
     if term_size.is_none() {
-        entries.iter().for_each(|entry| print!("{entry}"));
+        entries.iter().for_each(|entry| print!("{}", entry.0));
         print!("\n");
         exit(0);
     }
 
     let longest_entry = entries
         .iter()
-        .map(|x| x.clone().chars().count())
+        .map(|x| x.0.clone().chars().count())
         .max()
         .unwrap_or(0);
 
@@ -515,23 +515,22 @@ fn treat_entries(cli: &Cli, entries_list: Vec<String>) -> Vec<Vec<String>> {
     entries
         .chunks(entry_per_line)
         .map(|s| s.into())
-        .collect::<Vec<Vec<String>>>()
+        .collect::<Vec<Vec<(String, PathBuf)>>>()
 }
 
-fn normal_list(cli: &Cli, lines: Vec<Vec<String>>, longest_entry: usize) {
+fn normal_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf)>>, longest_entry: usize) {
     if lines.len() > 1 {
         for line in lines {
             for entry in line {
-                let style = match PathBuf::from(&entry).as_path().ptype() {
+                let style = match entry.1.as_path().ptype() {
                     PathType::Directory => Style::new().bold().fg(Colour::Blue),
                     PathType::Executable => Style::new().bold().fg(Colour::Green),
                     PathType::Symlink => Style::new().bold().fg(Colour::Cyan),
                     _ => Style::new(),
                 };
-                print!(
-                    "{: <width$}{}",
-                    style.paint(&entry),
-                    match PathBuf::from(&entry).as_path().ptype() {
+                let entry_format_string = format!(
+                    "{: <width$}",
+                    style.paint(entry.0.clone()).to_string() + match entry.1.as_path().ptype() {
                         PathType::Symlink => "@",
                         PathType::Directory => "/",
                         PathType::Executable => "*",
@@ -539,13 +538,14 @@ fn normal_list(cli: &Cli, lines: Vec<Vec<String>>, longest_entry: usize) {
                     },
                     width = longest_entry + 2
                 );
+                print!("{}", entry_format_string);
             }
             print!("\n");
         }
     } else {
         for line in lines {
             for entry in line {
-                let style = match PathBuf::from(&entry).as_path().ptype() {
+                let style = match entry.1.as_path().ptype() {
                     PathType::Directory => Style::new().bold().fg(Colour::Blue),
                     PathType::Executable => Style::new().bold().fg(Colour::Green),
                     PathType::Symlink => Style::new().bold().fg(Colour::Cyan),
@@ -553,8 +553,8 @@ fn normal_list(cli: &Cli, lines: Vec<Vec<String>>, longest_entry: usize) {
                 };
                 print!(
                     "{}{}  ",
-                    style.paint(&entry),
-                    match PathBuf::from(&entry).as_path().ptype() {
+                    style.paint(&entry.0),
+                    match entry.1.as_path().ptype() {
                         PathType::Symlink => "@",
                         PathType::Directory => "/",
                         PathType::Executable => "*",

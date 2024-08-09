@@ -53,7 +53,7 @@ impl PathExtras for Path {
             PathType::Directory
         } else if self.is_symlink() {
             PathType::Symlink
-        } else if (self.metadata().unwrap().permissions().mode() & (S_IXUSR | S_IXGRP)) != 0 {
+        } else if self.metadata().is_ok() && (self.metadata().unwrap().permissions().mode() & (S_IXUSR | S_IXGRP)) != 0 {
             PathType::Executable
         } else {
             PathType::File
