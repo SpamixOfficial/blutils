@@ -1,17 +1,13 @@
-use std::{
-    env::args,
-    path::{Path, PathBuf},
-    process::exit,
-};
+use std::{env::args, path::PathBuf, process::exit};
 
 use crate::utils::{PathExtras, PathType};
 
 use ansi_term::{Colour, Style};
 
-use clap::{Args, Parser};
+use clap::Parser;
 use walkdir::WalkDir;
 
-const PROGRAM: &str = "ls";
+const PROGRM: &str = "ls";
 
 #[derive(Parser, Debug, Clone)]
 #[command(
@@ -423,7 +419,7 @@ enum TimeWord {
 }
 
 pub fn main() {
-    let mut cli: Cli;
+    let cli: Cli;
     // skip first arg if it happens to be "blutils"
     if args().collect::<Vec<String>>()[0]
         .split("/")
@@ -451,12 +447,16 @@ fn ls(cli: &Cli, p: &PathBuf) {
         .into_iter()
         .filter_map(|e| e.ok())
         .map(|e| {
-            (e.clone().into_path()
-                .file_name()
-                .unwrap()
-                .to_str()
-                .unwrap()
-                .to_string(), e.into_path())
+            (
+                e.clone()
+                    .into_path()
+                    .file_name()
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                    .to_string(),
+                e.into_path(),
+            )
         })
         .collect();
     // Get longest entry
@@ -470,8 +470,14 @@ fn ls(cli: &Cli, p: &PathBuf) {
     let lines = treat_entries(cli, entries);
 
     // Finally trigger the right function
-    if !cli.recursive {
-        normal_list(cli, lines, longest_entry);
+    if !cli.list {
+        if !cli.recursive {
+            normal_list(cli, lines, longest_entry);
+        }
+    } else {
+        if !cli.recursive {
+            list_list(cli, lines);
+        }
     }
 }
 
@@ -530,12 +536,13 @@ fn normal_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf)>>, longest_entry: usi
                 };
                 let entry_format_string = format!(
                     "{: <width$}",
-                    style.paint(entry.0.clone()).to_string() + match entry.1.as_path().ptype() {
-                        PathType::Symlink => "@",
-                        PathType::Directory => "/",
-                        PathType::Executable => "*",
-                        _ => "",
-                    },
+                    style.paint(entry.0.clone()).to_string()
+                        + match entry.1.as_path().ptype() {
+                            PathType::Symlink => "@",
+                            PathType::Directory => "/",
+                            PathType::Executable => "*",
+                            _ => "",
+                        },
                     width = longest_entry + 2
                 );
                 print!("{}", entry_format_string);
@@ -565,4 +572,32 @@ fn normal_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf)>>, longest_entry: usi
             print!("\n");
         }
     }
+}
+
+fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf)>>) {
+    let mut entries: Vec<String> = vec![];
+    for line in lines {
+        for entry in line {
+            let style = match entry.1.as_path().ptype() {
+                PathType::Directory => Style::new().bold().fg(Colour::Blue),
+                PathType::Executable => Style::new().bold().fg(Colour::Green),
+                PathType::Symlink => Style::new().bold().fg(Colour::Cyan),
+                _ => Style::new(),
+            };
+            let entry_format_string = format!(
+                "{}",
+                style.paint(entry.0.clone()).to_string()
+                    + match entry.1.as_path().ptype() {
+                        PathType::Symlink => "@",
+                        PathType::Directory => "/",
+                        PathType::Executable => "*",
+                        _ => "",
+                    }
+            );
+            entries.push(entry_format_string);
+        }
+    }
+
+    println!("total {}", entries.len());
+    entries.iter().for_each(|f| println!("{}", f));
 }
