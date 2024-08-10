@@ -1,4 +1,4 @@
-use std::{env::args, ffi::OsString, path::PathBuf, process::exit};
+use std::{env::args, ffi::OsString, os::unix::fs::MetadataExt, path::PathBuf, process::exit};
 
 use crate::utils::{MetadataPlus, PathExtras, PathType, PermissionsPlus};
 
@@ -575,7 +575,17 @@ fn normal_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf)>>, longest_entry: usi
 }
 
 fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf)>>) {
-    let mut entries: Vec<String> = vec![];
+    let mut entries: Vec<(
+        String,
+        usize,
+        String,
+        String,
+        usize,
+        usize,
+        String,
+        String,
+        String,
+    )> = vec![];
     for line in lines {
         for entry in line {
             let style = match entry.1.as_path().ptype() {
@@ -596,32 +606,37 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf)>>) {
                 1
             };
             // Get owner and group
-            let owner = users::get_current_username()
-                .unwrap_or(OsString::from("unknown"));
+            let owner = users::get_current_username().unwrap_or(OsString::from("unknown"));
 
-            let group = users::get_current_groupname()
-                .unwrap_or(OsString::from("unknown"));
+            let group = users::get_current_groupname().unwrap_or(OsString::from("unknown"));
 
             // Finally create the format string
-            let entry_format_string = format!(
-                "{} {} {} {} {}",
+            let entry_item = (
                 perms_str,
                 dir_entries,
-                owner.to_str().unwrap(),
-                group.to_str().unwrap(),
+                owner.to_str().unwrap().to_string(),
+                group.to_str().unwrap().to_string(),
+                metadata_entry.size() as usize,
+                19 as usize,
+                String::from("aug"),
+                String::from("11.00"),
                 style.paint(entry.0.clone()).to_string()
                     + match entry.1.as_path().ptype() {
                         PathType::Symlink => "@",
                         PathType::Directory => "/",
                         PathType::Executable => "*",
                         _ => "",
-                    }
+                    },
             );
-            dbg!(&entry_format_string);
-            entries.push(entry_format_string);
+            entries.push(entry_item);
         }
     }
 
     println!("total {}", entries.len());
-    entries.iter().for_each(|f| println!("{}", f));
+    entries.iter().for_each(|f| {
+        println!(
+            "{} {: <longest_num_dir$} {} {} {} {} {} {} {}",
+            f.0, f.1, f.2, f.3, f.4, f.5, f.6, f.7, f.8,
+        )
+    });
 }
