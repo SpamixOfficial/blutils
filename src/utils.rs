@@ -1,7 +1,9 @@
-use std::{
-    any::Any, fmt::Display, io::{Error, Read, Result}, os::unix::fs::PermissionsExt, path::Path, process::exit
+use libc::{
+    getgrgid, getpwuid, getuid, S_IRGRP, S_IROTH, S_IRUSR, S_ISVTX, S_IWGRP, S_IWOTH, S_IWUSR, S_IXGRP, S_IXOTH, S_IXUSR
 };
-use libc::{getuid, S_IXGRP, S_IXUSR};
+use std::{
+    any::Any, ffi::CString, fmt::Display, fs::{Metadata, Permissions}, io::{Error, Read, Result}, os::unix::fs::{MetadataExt, PermissionsExt}, path::Path, process::exit
+};
 
 pub fn log<T: Display>(verbose: bool, message: T) {
     if verbose {
@@ -18,7 +20,7 @@ pub fn debug<T: Display>(debug: bool, message: T) {
 pub fn is_sudo() -> bool {
     unsafe {
         if getuid() != 0 {
-            return false
+            return false;
         } else {
             return true;
         };
@@ -53,7 +55,9 @@ impl PathExtras for Path {
             PathType::Directory
         } else if self.is_symlink() {
             PathType::Symlink
-        } else if self.metadata().is_ok() && (self.metadata().unwrap().permissions().mode() & (S_IXUSR | S_IXGRP)) != 0 {
+        } else if self.metadata().is_ok()
+            && (self.metadata().unwrap().permissions().mode() & (S_IXUSR | S_IXGRP)) != 0
+        {
             PathType::Executable
         } else {
             PathType::File
@@ -65,7 +69,102 @@ pub enum PathType {
     File,
     Directory,
     Symlink,
-    Executable
+    Executable,
+}
+
+pub trait MetadataPlus {
+    fn owner(&self) -> String;
+    fn group(&self) -> String;
+}
+
+impl MetadataPlus for Metadata {
+    fn group(&self) -> String {
+        let group: String;
+        unsafe {
+            let group_entry = getgrgid(self.gid()).read();
+            let group_raw = CString::from_raw(group_entry.gr_name);
+            group = group_raw.to_str().unwrap_or("unknown").to_string();
+        };
+        group
+    }
+    fn owner(&self) -> String {
+        let owner: String;
+        unsafe {
+            let user_entry = getpwuid(self.uid()).read();
+            let owner_raw = CString::from_raw(user_entry.pw_name);
+            owner = owner_raw.to_str().unwrap_or("unknown").to_string();
+        };
+        owner
+    }
+}
+
+pub trait PermissionsPlus {
+    fn mode_struct(&self) -> ModeWrapper;
+}
+
+impl PermissionsPlus for Permissions {
+    fn mode_struct(&self) -> ModeWrapper {
+        let mode_bits = &self.mode();
+        let owner = Mode {
+            read: (mode_bits & S_IRUSR) != 0,
+            write: (mode_bits & S_IWUSR) != 0,
+            execute: (mode_bits & S_IXUSR) != 0,
+        };
+        let group = Mode {
+            read: (mode_bits & S_IRGRP) != 0,
+            write: (mode_bits & S_IWGRP) != 0,
+            execute: (mode_bits & S_IXGRP) != 0,
+        };
+        let others = Mode {
+            read: (mode_bits & S_IROTH) != 0,
+            write: (mode_bits & S_IWOTH) != 0,
+            execute: (mode_bits & S_IXOTH) != 0,
+        };
+        ModeWrapper {
+            sticky_bit: (mode_bits & S_ISVTX) != 0,
+            owner,
+            group,
+            others,
+        }
+    }
+}
+
+impl ModeWrapper {
+    pub fn to_string(&self) -> String {
+        format!(
+            "{}{}{}{}",
+            if self.sticky_bit { "d" } else { "-" },
+            self.owner.to_string(),
+            self.group.to_string(),
+            self.others.to_string()
+        )
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct ModeWrapper {
+    sticky_bit: bool,
+    owner: Mode,
+    group: Mode,
+    others: Mode,
+}
+
+impl Mode {
+    pub fn to_string(&self) -> String {
+        format!(
+            "{}{}{}",
+            if self.read { "r" } else { "-" },
+            if self.write { "w" } else { "-" },
+            if self.execute { "x" } else { "-" }
+        )
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Mode {
+    read: bool,
+    write: bool,
+    execute: bool,
 }
 
 pub fn wrap<T: Any, M: Display>(result: Result<T>, prog: M, silent: bool) -> T {
@@ -98,6 +197,6 @@ pub fn prompt<T: Display>(question: T, d: bool) -> bool {
     match input[0].to_ascii_lowercase() as char {
         'y' => true,
         'n' => false,
-        _ => {return d}
+        _ => return d,
     }
 }

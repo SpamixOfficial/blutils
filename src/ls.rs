@@ -1,6 +1,6 @@
 use std::{env::args, path::PathBuf, process::exit};
 
-use crate::utils::{PathExtras, PathType};
+use crate::utils::{PathExtras, PathType, PermissionsPlus};
 
 use ansi_term::{Colour, Style};
 
@@ -584,8 +584,14 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf)>>) {
                 PathType::Symlink => Style::new().bold().fg(Colour::Cyan),
                 _ => Style::new(),
             };
+
+            let perms_str = entry.1.metadata().unwrap().permissions().mode_struct().to_string();
+
+            let dir_entries = if entry.1.is_dir() {WalkDir::new(&entry.1).into_iter().count()} else { 1 };
+
             let entry_format_string = format!(
-                "{}",
+                "{}{}",
+                perms_str,
                 style.paint(entry.0.clone()).to_string()
                     + match entry.1.as_path().ptype() {
                         PathType::Symlink => "@",
@@ -594,6 +600,7 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf)>>) {
                         _ => "",
                     }
             );
+            dbg!(entry.0, entry.1.metadata().unwrap().permissions().mode_struct());
             entries.push(entry_format_string);
         }
     }
