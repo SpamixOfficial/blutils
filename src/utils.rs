@@ -77,11 +77,19 @@ pub trait MetadataPlus {
     fn group(&self) -> String;
 }
 
-impl MetadataPlus for Metadata {
+/*impl MetadataPlus for Metadata {
     fn group(&self) -> String {
         let group: String;
         unsafe {
-            let group_entry = getgrgid(self.gid()).read();
+            dbg!(self.gid());
+            let group_entry_pointer = getgrgid(self.gid());
+            // Check so pointer is not null
+            if group_entry_pointer.is_null() {
+                group = String::from("unknown");
+                return group;
+            };
+            let group_entry = group_entry_pointer.read();
+            dbg!(&group_entry);
             let group_raw = CString::from_raw(group_entry.gr_name);
             group = group_raw.to_str().unwrap_or("unknown").to_string();
         };
@@ -90,13 +98,20 @@ impl MetadataPlus for Metadata {
     fn owner(&self) -> String {
         let owner: String;
         unsafe {
-            let user_entry = getpwuid(self.uid()).read();
+            let user_entry_pointer = getpwuid(self.uid());
+            // Check so pointer is not null
+            if user_entry_pointer.is_null() {
+                owner = String::from("unknown");
+                return owner;
+            };
+            let user_entry = user_entry_pointer.read();
+            dbg!(&user_entry);
             let owner_raw = CString::from_raw(user_entry.pw_name);
             owner = owner_raw.to_str().unwrap_or("unknown").to_string();
         };
         owner
     }
-}
+}*/
 
 pub trait PermissionsPlus {
     fn mode_struct(&self) -> ModeWrapper;
