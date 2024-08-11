@@ -632,11 +632,58 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf)>>) {
         }
     }
 
+    // All "longest-variables"
+    let longest = (
+        entries
+            .clone()
+            .iter()
+            .map(|x| x.1.to_string().chars().count())
+            .max()
+            .unwrap_or(0),
+        entries
+            .clone()
+            .iter()
+            .map(|x| x.2.chars().count())
+            .max()
+            .unwrap_or(0),
+        entries
+            .clone()
+            .iter()
+            .map(|x| x.3.chars().count())
+            .max()
+            .unwrap_or(0),
+        entries
+            .clone()
+            .iter()
+            .map(|x| x.4.to_string().chars().count())
+            .max()
+            .unwrap_or(0),
+        entries
+            .clone()
+            .iter()
+            .map(|x| x.5.to_string().chars().count())
+            .max()
+            .unwrap_or(0),
+    );
+
     println!("total {}", entries.len());
     entries.iter().for_each(|f| {
         println!(
-            "{} {: <longest_num_dir$} {} {} {} {} {} {} {}",
-            f.0, f.1, f.2, f.3, f.4, f.5, f.6, f.7, f.8,
+            "{} {: >longest_dir$} {: >longest_user$} {: >longest_group$} {: >longest_size$} {: >longest_date$} {} {} {}",
+            f.0,
+            f.1,
+            f.2,
+            f.3,
+            f.4,
+            f.5,
+            f.6,
+            f.7,
+            f.8,
+            longest_dir = longest.0,
+            longest_user = longest.1,
+            longest_group = longest.2,
+            longest_size = longest.3,
+            longest_date = longest.4
         )
     });
 }
