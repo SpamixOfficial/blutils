@@ -1,8 +1,9 @@
 use std::{env::args, ffi::OsString, os::unix::fs::MetadataExt, path::PathBuf, process::exit};
 
-use crate::utils::{MetadataPlus, PathExtras, PathType, PermissionsPlus};
+use crate::utils::{PathExtras, PathType, PermissionsPlus};
 
 use ansi_term::{Colour, Style};
+use chrono::{DateTime, Utc, NaiveDateTime};
 
 use clap::Parser;
 use walkdir::WalkDir;
@@ -610,6 +611,9 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf)>>) {
 
             let group = users::get_current_groupname().unwrap_or(OsString::from("unknown"));
 
+            // Create timestamps
+            let timestamp = 
+
             // Finally create the format string
             let entry_item = (
                 perms_str,
@@ -686,4 +690,42 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf)>>) {
             longest_date = longest.4
         )
     });
+}
+
+#[derive(Debug, Copy, Clone)]
+struct FileTimestamps {
+    access: Timestamp,
+    /*birth: Timestamp,*/ // Ignored for now, will implement when I find a way to do it!
+    modified: Timestamp,
+    metadata_change: Timestamp,
+}
+
+impl FileTimestamps {
+    fn new(&self, p: PathBuf) -> FileTimestamps {
+        let metadata = p.metadata().unwrap();
+        let access = Timestamp {
+            unix: metadata.atime(),
+            datetime: DateTime::from_timestamp(metadata.atime(), 0).unwrap_or(DateTime::from_timestamp(0,0).unwrap())
+        };
+        let modified = Timestamp {
+            unix: metadata.mtime(),
+            datetime: DateTime::from_timestamp(metadata.mtime(), 0).unwrap_or(DateTime::from_timestamp(0,0).unwrap())
+        };
+        let metadata_change = Timestamp {
+            unix: metadata.ctime(),
+            datetime: DateTime::from_timestamp(metadata.ctime(), 0).unwrap_or(DateTime::from_timestamp(0,0).unwrap())
+        };
+
+        FileTimestamps {
+            access,
+            modified,
+            metadata_change
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+struct Timestamp {
+    unix: i64,
+    datetime: DateTime<Utc>
 }
