@@ -3,7 +3,7 @@ use std::{env::args, ffi::OsString, os::unix::fs::MetadataExt, path::PathBuf, pr
 use crate::utils::{PathExtras, PathType, PermissionsPlus};
 
 use ansi_term::{Colour, Style};
-use chrono::{DateTime, Utc, NaiveDateTime};
+use chrono::{DateTime, NaiveDateTime, Utc};
 
 use clap::Parser;
 use walkdir::WalkDir;
@@ -257,7 +257,8 @@ struct Cli {
     // TODO
     #[arg(
         long = "time",
-        help = "Select which timestamp used to display or sort; access time (-u): atime, access, use; metadata change time (-c): ctime, status;  modified  time  (default): mtime, modification; birth time: birth, creation;\nWith -l, WORD determines which time to show; with --sort=time, sort by WORD (newest first)"
+        help = "Select which timestamp used to display or sort; access time (-u): atime, access, use; metadata change time (-c): ctime, status;  modified  time  (default): mtime, modification; birth time: birth, creation;\nWith -l, WORD determines which time to show; with --sort=time, sort by WORD (newest first)",
+        value_name("WORD")
     )]
     time_display_sort: Option<TimeWord>,
     // TODO
@@ -414,8 +415,11 @@ enum SortWord {
 
 #[derive(clap::ValueEnum, Clone, Debug, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum TimeWord {
+    #[value(name = "atime", aliases(["access", "use"]))]
     AccessTime,
+    #[value(name = "ctime", aliases(["status"]))]
     MetadataChangeTime,
+    #[value(name = "mtime", aliases(["modification"]))]
     ModifiedTime,
 }
 
@@ -488,8 +492,13 @@ fn treat_entries(cli: &Cli, entries_list: Vec<(String, PathBuf)>) -> Vec<Vec<(St
 
     // Here we start treating the vector and variables
     // Sorting
-    if !cli.no_sort {
+    if cli.sort_word.is_none() {
         entries.sort_by(|a, b| a.0.to_lowercase().cmp(&b.0.to_lowercase()));
+    } else if let Some(word) = cli.sort_word {
+        match word {
+            SortWord::None => (),
+            _ => (),
+        }
     }
     // If the all or almost all mode isn't activated we need to do some filtering
     if !cli.all || !cli.almost_all {
@@ -582,7 +591,7 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf)>>) {
         String,
         String,
         usize,
-        usize,
+        String,
         String,
         String,
         String,
@@ -612,7 +621,18 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf)>>) {
             let group = users::get_current_groupname().unwrap_or(OsString::from("unknown"));
 
             // Create timestamps
-            let timestamp = 
+            let file_timestamp = FileTimestamps::new(entry.1.clone());
+            
+            // Now choose the right time to display
+            let timestamp = if let Some(word) = cli.time_display_sort {
+                DisplayTime::new(match word {
+                    TimeWord::AccessTime => file_timestamp.access,
+                    TimeWord::ModifiedTime => file_timestamp.modified,
+                    TimeWord::MetadataChangeTime => file_timestamp.metadata_change
+                })
+            } else {
+                DisplayTime::new(file_timestamp.modified)
+            };
 
             // Finally create the format string
             let entry_item = (
@@ -621,9 +641,9 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf)>>) {
                 owner.to_str().unwrap().to_string(),
                 group.to_str().unwrap().to_string(),
                 metadata_entry.size() as usize,
-                19 as usize,
-                String::from("aug"),
-                String::from("11.00"),
+                timestamp.date,
+                timestamp.month,
+                timestamp.time,
                 style.paint(entry.0.clone()).to_string()
                     + match entry.1.as_path().ptype() {
                         PathType::Symlink => "@",
@@ -661,19 +681,13 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf)>>) {
             .iter()
             .map(|x| x.4.to_string().chars().count())
             .max()
-            .unwrap_or(0),
-        entries
-            .clone()
-            .iter()
-            .map(|x| x.5.to_string().chars().count())
-            .max()
-            .unwrap_or(0),
+            .unwrap_or(0)
     );
 
     println!("total {}", entries.len());
     entries.iter().for_each(|f| {
         println!(
-            "{} {: >longest_dir$} {: >longest_user$} {: >longest_group$} {: >longest_size$} {: >longest_date$} {} {} {}",
+            "{} {: >longest_dir$} {: >longest_user$} {: >longest_group$} {: >longest_size$} {} {} {} {}",
             f.0,
             f.1,
             f.2,
@@ -687,7 +701,6 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf)>>) {
             longest_user = longest.1,
             longest_group = longest.2,
             longest_size = longest.3,
-            longest_date = longest.4
         )
     });
 }
@@ -701,25 +714,28 @@ struct FileTimestamps {
 }
 
 impl FileTimestamps {
-    fn new(&self, p: PathBuf) -> FileTimestamps {
+    fn new(p: PathBuf) -> FileTimestamps {
         let metadata = p.metadata().unwrap();
         let access = Timestamp {
             unix: metadata.atime(),
-            datetime: DateTime::from_timestamp(metadata.atime(), 0).unwrap_or(DateTime::from_timestamp(0,0).unwrap())
+            datetime: DateTime::from_timestamp(metadata.atime(), 0)
+                .unwrap_or(DateTime::from_timestamp(0, 0).unwrap()),
         };
         let modified = Timestamp {
             unix: metadata.mtime(),
-            datetime: DateTime::from_timestamp(metadata.mtime(), 0).unwrap_or(DateTime::from_timestamp(0,0).unwrap())
+            datetime: DateTime::from_timestamp(metadata.mtime(), 0)
+                .unwrap_or(DateTime::from_timestamp(0, 0).unwrap()),
         };
         let metadata_change = Timestamp {
             unix: metadata.ctime(),
-            datetime: DateTime::from_timestamp(metadata.ctime(), 0).unwrap_or(DateTime::from_timestamp(0,0).unwrap())
+            datetime: DateTime::from_timestamp(metadata.ctime(), 0)
+                .unwrap_or(DateTime::from_timestamp(0, 0).unwrap()),
         };
 
         FileTimestamps {
             access,
             modified,
-            metadata_change
+            metadata_change,
         }
     }
 }
@@ -727,5 +743,30 @@ impl FileTimestamps {
 #[derive(Debug, Copy, Clone)]
 struct Timestamp {
     unix: i64,
-    datetime: DateTime<Utc>
+    datetime: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone)]
+struct DisplayTime {
+    month: String,
+    date: String,
+    time: String,
+    year: String,
+}
+
+impl DisplayTime {
+    fn new(time: Timestamp) -> DisplayTime {
+        let date_naive = time.datetime.date_naive();
+        let time_naive = time.datetime.time();
+        let month = date_naive.format("%b").to_string().to_lowercase();
+        let date = date_naive.format("%e").to_string();
+        let time = time_naive.format("%H:%M").to_string();
+        let year = date_naive.format("%Y").to_string();
+        DisplayTime {
+            month,
+            date,
+            time,
+            year,
+        }
+    }
 }
