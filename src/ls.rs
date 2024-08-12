@@ -254,7 +254,7 @@ struct Cli {
         help = "Sort by WORD instead of name: none (-U), size (-S), time (-t), version (-V), extension (-X), width"
     )]
     sort_word: Option<SortWord>,
-    // TODO
+    // Done
     #[arg(
         long = "time",
         help = "Select which timestamp used to display or sort; access time (-u): atime, access, use; metadata change time (-c): ctime, status;  modified  time  (default): mtime, modification; birth time: birth, creation;\nWith -l, WORD determines which time to show; with --sort=time, sort by WORD (newest first)",
@@ -496,10 +496,36 @@ fn treat_entries(cli: &Cli, entries_list: Vec<(String, PathBuf)>) -> Vec<Vec<(St
         entries.sort_by(|a, b| a.0.to_lowercase().cmp(&b.0.to_lowercase()));
     } else if let Some(word) = cli.sort_word {
         match word {
+            SortWord::Time => {
+                let time_word = if let Some(x) = cli.time_display_sort {
+                    x
+                } else {
+                    TimeWord::ModifiedTime
+                };
+                entries.sort_by(|a, b| {
+                    let timestamps = (FileTimestamps::new(a.1.clone()), FileTimestamps::new(b.1.clone()));
+                    let times = match time_word {
+                        TimeWord::ModifiedTime => (
+                            timestamps.0.modified,
+                            timestamps.1.modified,
+                        ),
+                        TimeWord::AccessTime => (
+                            timestamps.0.access,
+                            timestamps.1.access,
+                        ),
+                        TimeWord::MetadataChangeTime => (
+                            timestamps.0.metadata_change,
+                            timestamps.1.metadata_change,
+                        ),
+                    };
+                    times.1.unix.cmp(&times.0.unix)
+                })
+            }
             SortWord::None => (),
             _ => (),
         }
     }
+    dbg!(&entries);
     // If the all or almost all mode isn't activated we need to do some filtering
     if !cli.all || !cli.almost_all {
         entries = entries
@@ -622,13 +648,13 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf)>>) {
 
             // Create timestamps
             let file_timestamp = FileTimestamps::new(entry.1.clone());
-            
+
             // Now choose the right time to display
             let timestamp = if let Some(word) = cli.time_display_sort {
                 DisplayTime::new(match word {
                     TimeWord::AccessTime => file_timestamp.access,
                     TimeWord::ModifiedTime => file_timestamp.modified,
-                    TimeWord::MetadataChangeTime => file_timestamp.metadata_change
+                    TimeWord::MetadataChangeTime => file_timestamp.metadata_change,
                 })
             } else {
                 DisplayTime::new(file_timestamp.modified)
@@ -681,7 +707,7 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf)>>) {
             .iter()
             .map(|x| x.4.to_string().chars().count())
             .max()
-            .unwrap_or(0)
+            .unwrap_or(0),
     );
 
     println!("total {}", entries.len());
