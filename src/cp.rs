@@ -42,7 +42,7 @@ struct Cli {
     //Done
     #[arg(
         short = 'b',
-        help = "Like --backup but doesnt take an argument (Default option is \"existing\")"
+        help = "Like --backup but doesn't take an argument (Default option is \"existing\")"
     )]
     backup: bool,
 
