@@ -40,7 +40,7 @@ struct Cli {
     )]
     silent: bool,
 
-    #[arg(short = 'v', long = "verbose", help = "explain whats being done")]
+    #[arg(short = 'v', long = "verbose", help = "explain what's being done")]
     verbose: bool,
 
     #[arg(
@@ -59,7 +59,7 @@ struct Cli {
 
     #[arg(
         long = "no-preserve-root",
-        help = "Dont treat '/' specially (the default)",
+        help = "Don't treat '/' specially (the default)",
         conflicts_with("preserve_root")
     )]
     no_preserve_root: bool,
