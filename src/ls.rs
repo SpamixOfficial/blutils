@@ -3,7 +3,7 @@ use std::{env::args, ffi::OsString, os::unix::fs::MetadataExt, path::PathBuf, pr
 use crate::utils::{PathExtras, PathType, PermissionsPlus};
 
 use ansi_term::{Colour, Style};
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::{DateTime, Local, TimeZone};
 
 use clap::Parser;
 use walkdir::WalkDir;
@@ -60,11 +60,12 @@ struct Cli {
         default_missing_value("~")
     )]
     ignore_backups: Option<String>,
+    // Done
     #[arg(
         short = 'c',
         help = "With -lt: sort by, and show, ctime (time of last change of file status information); with -l: show ctime and sort by name; otherwise: sort by ctime, newest first"
     )]
-    show_ctime: bool,
+    sort_access_ctime: bool,
     #[arg(short = 'C', help = "List entries by columns", default_value("true"))]
     column: bool,
     #[arg(long = "color", help = "Color the output WHEN", default_value("never"))]
@@ -268,7 +269,7 @@ struct Cli {
         value_name("TIME_STYLE")
     )]
     time_style: Option<String>,
-    // TODO
+    // done
     #[arg(short = 't', help = "Sort by time")]
     time_sort: bool,
     // TODO
@@ -279,7 +280,7 @@ struct Cli {
         value_name("COLS")
     )]
     tab_size: Option<u32>,
-    // TODO
+    // Done
     #[arg(
         short = 'u',
         help = "With -lt: sort by, and show, access time; with -l: show access time and sort by name; otherwise: sort by access time, newest first"
@@ -299,16 +300,16 @@ struct Cli {
         value_name("COLS")
     )]
     output_width: Option<u32>,
-    // TODO
+    // Done
     #[arg(short = 'x', help = "List entries by lines instead of columns")]
-    list_columns: bool,
+    list_lines: bool,
     // TODO
     #[arg(short = 'X', help = "Sort alphabetically by entry extension")]
     sort_extension: bool,
     // TODO
     #[arg(long = "zero", help = "End each output line with NUL, not newline")]
     end_nul: bool,
-    // TODO
+    // Done
     #[arg(short = '1', help = "List one file per line")]
     one_line: bool,
     // Planned for later updates
@@ -424,7 +425,7 @@ enum TimeWord {
 }
 
 pub fn main() {
-    let cli: Cli;
+    let mut cli: Cli;
     // skip first arg if it happens to be "blutils"
     if args().collect::<Vec<String>>()[0]
         .split("/")
@@ -436,6 +437,17 @@ pub fn main() {
     } else {
         cli = Cli::parse();
     };
+
+    if cli.time_sort {
+        cli.sort_word = Some(SortWord::Time);
+    }
+    if cli.sort_access_time {
+        cli.time_display_sort = Some(TimeWord::AccessTime)
+    }
+    if cli.sort_access_ctime {
+        cli.time_display_sort = Some(TimeWord::MetadataChangeTime)
+    }
+
     for file in &cli.files {
         ls(&cli, file);
     }
@@ -503,20 +515,16 @@ fn treat_entries(cli: &Cli, entries_list: Vec<(String, PathBuf)>) -> Vec<Vec<(St
                     TimeWord::ModifiedTime
                 };
                 entries.sort_by(|a, b| {
-                    let timestamps = (FileTimestamps::new(a.1.clone()), FileTimestamps::new(b.1.clone()));
+                    let timestamps = (
+                        FileTimestamps::new(a.1.clone()),
+                        FileTimestamps::new(b.1.clone()),
+                    );
                     let times = match time_word {
-                        TimeWord::ModifiedTime => (
-                            timestamps.0.modified,
-                            timestamps.1.modified,
-                        ),
-                        TimeWord::AccessTime => (
-                            timestamps.0.access,
-                            timestamps.1.access,
-                        ),
-                        TimeWord::MetadataChangeTime => (
-                            timestamps.0.metadata_change,
-                            timestamps.1.metadata_change,
-                        ),
+                        TimeWord::ModifiedTime => (timestamps.0.modified, timestamps.1.modified),
+                        TimeWord::AccessTime => (timestamps.0.access, timestamps.1.access),
+                        TimeWord::MetadataChangeTime => {
+                            (timestamps.0.metadata_change, timestamps.1.metadata_change)
+                        }
                     };
                     times.1.unix.cmp(&times.0.unix)
                 })
@@ -525,7 +533,6 @@ fn treat_entries(cli: &Cli, entries_list: Vec<(String, PathBuf)>) -> Vec<Vec<(St
             _ => (),
         }
     }
-    dbg!(&entries);
     // If the all or almost all mode isn't activated we need to do some filtering
     if !cli.all || !cli.almost_all {
         entries = entries
@@ -542,7 +549,7 @@ fn treat_entries(cli: &Cli, entries_list: Vec<(String, PathBuf)>) -> Vec<Vec<(St
     // non-graphical process
     if term_size.is_none() {
         entries.iter().for_each(|entry| print!("{}", entry.0));
-        print!("\n");
+        println!("\n");
         exit(0);
     }
 
@@ -554,16 +561,65 @@ fn treat_entries(cli: &Cli, entries_list: Vec<(String, PathBuf)>) -> Vec<Vec<(St
 
     // Get the maximum entries per line and use this to create a new Vec<Vec<String>>
     let entry_per_line = term_size.unwrap().cols as usize / (longest_entry + 2);
-    entries
-        .chunks(entry_per_line)
-        .map(|s| s.into())
-        .collect::<Vec<Vec<(String, PathBuf)>>>()
+    if cli.list_lines {
+        entries
+            .chunks(entry_per_line)
+            .map(|s| s.into())
+            .collect::<Vec<Vec<(String, PathBuf)>>>()
+    } else {
+        let mut chunk_size = entries.len()/entry_per_line;
+        if chunk_size < 1 {
+            chunk_size = entries.len()
+        };
+        entries
+            .chunks(chunk_size)
+            .map(|s| s.into())
+            .collect::<Vec<Vec<(String, PathBuf)>>>()
+    }
 }
 
 fn normal_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf)>>, longest_entry: usize) {
-    if lines.len() > 1 {
+    if cli.one_line {
+        lines.iter().for_each(|entries| {
+            for entry in entries {
+                println!("{}", entry.0)
+            }
+        });
+        exit(0);
+    }
+    if lines.len() > 1 && cli.list_lines {
         for line in lines {
             for entry in line {
+                let style = match entry.1.as_path().ptype() {
+                    PathType::Directory => Style::new().bold().fg(Colour::Blue),
+                    PathType::Executable => Style::new().bold().fg(Colour::Green),
+                    PathType::Symlink => Style::new().bold().fg(Colour::Cyan),
+                    _ => Style::new(),
+                };
+                let entry_format_string = format!(
+                    "{: <width$}",
+                    style.paint(entry.0.clone()).to_string()
+                        + match entry.1.as_path().ptype() {
+                            PathType::Symlink => "@",
+                            PathType::Directory => "/",
+                            PathType::Executable => "*",
+                            _ => "",
+                        },
+                    width = longest_entry + 2
+                );
+                print!("{}", entry_format_string);
+            }
+            print!("\n");
+        }
+    } else if lines.len() > 1 {
+        let entries = lines.clone().get(1).unwrap().len();
+        for i in 0..entries - 1 {
+            for line in &lines {
+                let entry = if let Some(x) = line.get(i) {
+                    x
+                } else {
+                    continue;
+                };
                 let style = match entry.1.as_path().ptype() {
                     PathType::Directory => Style::new().bold().fg(Colour::Blue),
                     PathType::Executable => Style::new().bold().fg(Colour::Green),
@@ -744,18 +800,24 @@ impl FileTimestamps {
         let metadata = p.metadata().unwrap();
         let access = Timestamp {
             unix: metadata.atime(),
-            datetime: DateTime::from_timestamp(metadata.atime(), 0)
-                .unwrap_or(DateTime::from_timestamp(0, 0).unwrap()),
+            datetime: Local
+                .timestamp_opt(metadata.atime(), 0)
+                .single()
+                .unwrap_or(Local.timestamp_opt(0, 0).unwrap()),
         };
         let modified = Timestamp {
             unix: metadata.mtime(),
-            datetime: DateTime::from_timestamp(metadata.mtime(), 0)
-                .unwrap_or(DateTime::from_timestamp(0, 0).unwrap()),
+            datetime: Local
+                .timestamp_opt(metadata.mtime(), 0)
+                .single()
+                .unwrap_or(Local.timestamp_opt(0, 0).unwrap()),
         };
         let metadata_change = Timestamp {
             unix: metadata.ctime(),
-            datetime: DateTime::from_timestamp(metadata.ctime(), 0)
-                .unwrap_or(DateTime::from_timestamp(0, 0).unwrap()),
+            datetime: Local
+                .timestamp_opt(metadata.ctime(), 0)
+                .single()
+                .unwrap_or(Local.timestamp_opt(0, 0).unwrap()),
         };
 
         FileTimestamps {
@@ -769,7 +831,7 @@ impl FileTimestamps {
 #[derive(Debug, Copy, Clone)]
 struct Timestamp {
     unix: i64,
-    datetime: DateTime<Utc>,
+    datetime: DateTime<Local>,
 }
 
 #[derive(Debug, Clone)]
