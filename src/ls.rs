@@ -57,6 +57,7 @@ struct Cli {
         long = "ignore-backups",
         help = "Do not list entries ending with ~ or a specified suffix",
         value_name("suffix"),
+        num_args=0..=1,
         default_missing_value("~")
     )]
     ignore_backups: Option<String>,
@@ -594,7 +595,6 @@ fn treat_entries(
             longest_entry,
         )
     } else {
-        dbg!(entries.len(), entry_per_line);
         let mut chunk_size = entries.len() / entry_per_line;
         if chunk_size < 2 {
             chunk_size = entries.len()
@@ -610,7 +610,6 @@ fn treat_entries(
 }
 
 fn normal_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>, longest_entry: usize) {
-    dbg!("normal");
     if cli.one_line {
         lines.iter().for_each(|entries| {
             for entry in entries {
@@ -620,7 +619,6 @@ fn normal_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>, longest_ent
         exit(0);
     }
     if lines.len() > 1 && cli.list_lines {
-        dbg!(".");
         for line in lines {
             for entry in line {
                 /*let style = match entry.1.as_path().ptype() {
@@ -645,10 +643,7 @@ fn normal_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>, longest_ent
             print!("\n");
         }
     } else if lines.len() > 1 {
-        dbg!(&lines);
-
         let entries = lines.clone().get(1).unwrap().len();
-        dbg!(&entries);
         for i in 0..entries - 1 {
             for (i2, line) in lines.iter().enumerate() {
                 let entry = if let Some(x) = line.get(i) {
@@ -656,7 +651,6 @@ fn normal_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>, longest_ent
                 } else {
                     continue;
                 };
-                dbg!(".");
                 let entry_format_string = format!(
                     "{: <width$}",
                     entry.0.clone()
