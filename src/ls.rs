@@ -51,7 +51,7 @@ struct Cli {
         help = "With -l, scale sizes by SIZE when printing them; e.g., '--block-size=M'; see SIZE format below"
     )]
     block_size: Option<BlockSize>,
-    // TODO
+    // Done
     #[arg(
         short = 'B',
         long = "ignore-backups",
@@ -507,6 +507,12 @@ fn treat_entries(
         .map(|f| (f.0.clone(), f.1, f.0.len()))
         .collect();
 
+    // Here we remove and add items as needed
+    if let Some(suffix) = cli.ignore_backups.clone() {
+        dbg!(&suffix);
+        entries.retain(|x| x.0.ends_with(suffix.as_str()) != true);
+    }
+
     // Here we start treating the vector and variables
     // Sorting
     if cli.sort_word.is_none() {
@@ -588,8 +594,9 @@ fn treat_entries(
             longest_entry,
         )
     } else {
+        dbg!(entries.len(), entry_per_line);
         let mut chunk_size = entries.len() / entry_per_line;
-        if chunk_size < 1 {
+        if chunk_size < 2 {
             chunk_size = entries.len()
         };
         (
@@ -603,6 +610,7 @@ fn treat_entries(
 }
 
 fn normal_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>, longest_entry: usize) {
+    dbg!("normal");
     if cli.one_line {
         lines.iter().for_each(|entries| {
             for entry in entries {
@@ -612,6 +620,7 @@ fn normal_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>, longest_ent
         exit(0);
     }
     if lines.len() > 1 && cli.list_lines {
+        dbg!(".");
         for line in lines {
             for entry in line {
                 /*let style = match entry.1.as_path().ptype() {
@@ -636,7 +645,10 @@ fn normal_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>, longest_ent
             print!("\n");
         }
     } else if lines.len() > 1 {
+        dbg!(&lines);
+
         let entries = lines.clone().get(1).unwrap().len();
+        dbg!(&entries);
         for i in 0..entries - 1 {
             for (i2, line) in lines.iter().enumerate() {
                 let entry = if let Some(x) = line.get(i) {
@@ -644,6 +656,7 @@ fn normal_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>, longest_ent
                 } else {
                     continue;
                 };
+                dbg!(".");
                 let entry_format_string = format!(
                     "{: <width$}",
                     entry.0.clone()
