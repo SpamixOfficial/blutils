@@ -69,104 +69,125 @@ struct Cli {
     sort_access_ctime: bool,
     #[arg(short = 'C', help = "List entries by columns", default_value("true"))]
     column: bool,
-    #[arg(
+    // TODO
+	#[arg(
         long = "color",
         help = "Color the output WHEN",
         default_value("always")
     )]
     color: Option<When>,
-    #[arg(
+    // TODO
+	#[arg(
         short = 'd',
         long = "directory",
         help = "List directories themselves, not their contents"
     )]
     directory: bool,
-    #[arg(
+    // TODO
+	#[arg(
         short = 'D',
         long = "dired",
         help = "Generate output designed for Emacs' dired mode"
     )]
     dired: bool,
-    #[arg(short = 'f', help = "Do not sort, enable -aU, disable -ls --color")]
+    // TODO
+	#[arg(short = 'f', help = "Do not sort, enable -aU, disable -ls --color")]
     no_sort_color: bool,
-    #[arg(
+    // TODO
+	#[arg(
         short = 'F',
         long = "classify",
         help = "Append indicator (one of */=>@|) to entries WHEN"
     )]
     classify: Option<When>,
-    #[arg(long = "file-type", help = "Likewise, except do not append '*'")]
+    // TODO
+	#[arg(long = "file-type", help = "Likewise, except do not append '*'")]
     file_type: bool,
-    #[arg(
+    // TODO
+	#[arg(
         long = "format",
         help = "Across -x, commas -m, horizontal -x, long -l, single-column -1, verbose -l, vertical -C"
     )]
     format: Option<FormatWord>,
-    #[arg(long = "full-time", help = "Like -l  --time-style=full-iso")]
+    // TODO
+	#[arg(long = "full-time", help = "Like -l  --time-style=full-iso")]
     alias_list_time_full_iso: bool,
-    #[arg(short = 'g', help = "Like -l but does not list owner")]
+    // TODO
+	#[arg(short = 'g', help = "Like -l but does not list owner")]
     list_no_owner: bool,
-    #[arg(
+    // TODO
+	#[arg(
         long = "group-directories-first",
         help = "Group directories before files; can be augmented with a --sort option, but any use of --sort=none (-U) disables grouping"
     )]
     group_directories_first: bool,
-    #[arg(
+    // TODO
+	#[arg(
         short = 'G',
         long = "no-group",
         help = "In a long listing, dont print group names"
     )]
     no_group: bool,
-    #[arg(
+    // TODO
+	#[arg(
         short = 'h',
         long = "human-readable",
         help = "With -l and -s, print sizes like 1K 234M 2G etc."
     )]
     human_readable: bool,
-    #[arg(
+    // TODO
+	#[arg(
         long = "si",
         help = "Like human-readable but use powers of 1000, not 1024"
     )]
     human_readable_1000: bool,
-    #[arg(
+    // TODO
+	#[arg(
         short = 'H',
         long = "dereference-command-line",
         help = "Always dereference symbolic links passed as arguments"
     )]
     dereference_argument: bool,
-    #[arg(
+    // TODO
+	#[arg(
         long = "dereference-command-line-symlink-to-dir",
         help = "Follow each command line symbolic link that points to a directory"
     )]
     dereference_argument_dir: bool,
-    #[arg(
+    // TODO
+	#[arg(
         long = "hide",
         help = "Do not list entries which matches PATTERN, overriden by -a or -A",
         value_name("PATTERN")
     )]
     hide: Option<String>,
-    #[arg(long = "hyperlink", help = "Hyperlink file names WHEN")]
+    // TODO
+	#[arg(long = "hyperlink", help = "Hyperlink file names WHEN")]
     hyperlink_when: Option<When>,
-    #[arg(
+    // TODO
+	#[arg(
         long = "indicator-style",
         help = "Append indicator with style WORD to entry names: none (default), slash (-p), file-type (--file-type), classify (-F)",
         default_value("none")
     )]
     indicator_style: Option<IndicatorWord>,
-    #[arg(
+    // TODO
+	#[arg(
         short = 'i',
         long = "inode",
         help = "Print the index number of each file"
     )]
     inode: bool,
-    #[arg(
+    // TODO
+	#[arg(
         short = 'I',
         long = "ignore",
         help = "Do not list entries which matches PATTERN",
         value_name("PATTERN")
     )]
     ignore_pattern: Option<String>,
-    #[arg(
+    // TODO
+	#[arg(
         short = 'k',
         long = "kibibytes",
         help = "Default to 1024-byte blocks for file system usage; used only with -s and directory totals"
@@ -465,7 +486,9 @@ fn ls(cli: &Cli, p: &PathBuf) {
     }
 
     // First we get and collect all the entries into a vector of strings
-    let entries: Vec<(String, PathBuf)> = dir
+    let entries: Vec<(String, PathBuf)>;
+    if p.is_dir() {
+        entries = dir
         .into_iter()
         .filter_map(|e| e.ok())
         .map(|e| {
@@ -481,6 +504,10 @@ fn ls(cli: &Cli, p: &PathBuf) {
             )
         })
         .collect();
+    } else {
+        // Manually create a one item vector if not a dir
+        entries = vec![(p.to_str().unwrap().to_string(), p.to_owned())]
+    }
     // Create the lines variable we will use later
     // Also get longest entry because the processing introduces asci control characters in most
     // cases!
@@ -510,10 +537,9 @@ fn treat_entries(
 
     // Here we remove and add items as needed
     if let Some(suffix) = cli.ignore_backups.clone() {
-        dbg!(&suffix);
         entries.retain(|x| x.0.ends_with(suffix.as_str()) != true);
     }
-
+    
     // Here we start treating the vector and variables
     // Sorting
     if cli.sort_word.is_none() {
@@ -578,12 +604,16 @@ fn treat_entries(
             .collect();
     }
 
-    let longest_entry = entries
+    let mut longest_entry = entries
         .iter()
         .map(|x| x.0.len() + 2 + x.0.len() - x.2)
         .max()
         .unwrap_or(0);
-
+    // Here we can safely assume that the above function failed because the entries list is too
+    // short, so we simply set it ourselves
+    if longest_entry == 0 && entries.len() == 1 {
+        longest_entry = entries.get(0).unwrap().0.len();
+    }
     // Get the maximum entries per line and use this to create a new Vec<Vec<String>>
     let entry_per_line = term_size.unwrap().cols as usize / (longest_entry);
     if cli.list_lines {
@@ -636,7 +666,7 @@ fn normal_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>, longest_ent
                             PathType::Executable => "*",
                             _ => " ",
                         },
-                    width = longest_entry + 2 + (entry.0.len() - entry.2)
+                    width = longest_entry + 1 + (entry.0.len() - entry.2)
                 );
                 print!("{}", entry_format_string);
             }
@@ -662,7 +692,7 @@ fn normal_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>, longest_ent
                         },
                     // Doing witchcraft here to make sure formatting looks nice!
                     width = if i2 != lines.len() - 1 {
-                        longest_entry + 2 + (entry.0.len() - entry.2)
+                        longest_entry + 1 + (entry.0.len() - entry.2)
                     } else {
                         0
                     }
@@ -691,7 +721,6 @@ fn normal_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>, longest_ent
                     }
                 );
             }
-            print!("\n");
         }
     }
 }
