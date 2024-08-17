@@ -1,5 +1,5 @@
 use libc::{
-    getgrgid, getpwuid, getuid, S_IRGRP, S_IROTH, S_IRUSR, S_ISVTX, S_IWGRP, S_IWOTH, S_IWUSR, S_IXGRP, S_IXOTH, S_IXUSR
+    getuid, S_IRGRP, S_IROTH, S_IRUSR, S_ISVTX, S_IWGRP, S_IWOTH, S_IWUSR, S_IXGRP, S_IXOTH, S_IXUSR
 };
 use std::{
     any::Any, ffi::CString, fmt::Display, fs::{Metadata, Permissions}, io::{Error, Read, Result}, os::unix::fs::{MetadataExt, PermissionsExt}, path::Path, process::exit

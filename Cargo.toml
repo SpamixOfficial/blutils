@@ -16,5 +16,7 @@ termsize = "0.1.9"
 ansi_term = "0.12.1"
 users = "0.11.0"
 chrono = { version = "0.4.38", features = ["alloc", "clock"] }
+regex = "1.10.6"
+nix = { version = "0.29.0", features = ["fs"] }
 [build-dependencies]
 chrono = "0.4.38"

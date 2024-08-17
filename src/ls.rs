@@ -1,4 +1,5 @@
 use std::{env::args, ffi::OsString, os::unix::fs::MetadataExt, path::PathBuf, process::exit};
+use nix::sys::stat::stat;
 
 use crate::utils::{PathExtras, PathType, PermissionsPlus};
 
@@ -6,6 +7,7 @@ use ansi_term::{Colour, Style};
 use chrono::{DateTime, Local, TimeZone};
 
 use clap::Parser;
+use regex::Regex;
 use walkdir::WalkDir;
 
 const PROGRM: &str = "ls";
@@ -46,6 +48,7 @@ struct Cli {
         help = "Print C-style escapes for nongraphic characters"
     )]
     print_escapes: bool,
+    // TODO
     #[arg(
         long = "block_size",
         help = "With -l, scale sizes by SIZE when printing them; e.g., '--block-size=M'; see SIZE format below"
@@ -70,124 +73,124 @@ struct Cli {
     #[arg(short = 'C', help = "List entries by columns", default_value("true"))]
     column: bool,
     // TODO
-	#[arg(
+    #[arg(
         long = "color",
         help = "Color the output WHEN",
         default_value("always")
     )]
     color: Option<When>,
     // TODO
-	#[arg(
+    #[arg(
         short = 'd',
         long = "directory",
         help = "List directories themselves, not their contents"
     )]
     directory: bool,
     // TODO
-	#[arg(
+    #[arg(
         short = 'D',
         long = "dired",
         help = "Generate output designed for Emacs' dired mode"
     )]
     dired: bool,
     // TODO
-	#[arg(short = 'f', help = "Do not sort, enable -aU, disable -ls --color")]
+    #[arg(short = 'f', help = "Do not sort, enable -aU, disable -ls --color")]
     no_sort_color: bool,
     // TODO
-	#[arg(
+    #[arg(
         short = 'F',
         long = "classify",
         help = "Append indicator (one of */=>@|) to entries WHEN"
     )]
     classify: Option<When>,
     // TODO
-	#[arg(long = "file-type", help = "Likewise, except do not append '*'")]
+    #[arg(long = "file-type", help = "Likewise, except do not append '*'")]
     file_type: bool,
     // TODO
-	#[arg(
+    #[arg(
         long = "format",
         help = "Across -x, commas -m, horizontal -x, long -l, single-column -1, verbose -l, vertical -C"
     )]
     format: Option<FormatWord>,
     // TODO
-	#[arg(long = "full-time", help = "Like -l  --time-style=full-iso")]
+    #[arg(long = "full-time", help = "Like -l  --time-style=full-iso")]
     alias_list_time_full_iso: bool,
     // TODO
-	#[arg(short = 'g', help = "Like -l but does not list owner")]
+    #[arg(short = 'g', help = "Like -l but does not list owner")]
     list_no_owner: bool,
     // TODO
-	#[arg(
+    #[arg(
         long = "group-directories-first",
         help = "Group directories before files; can be augmented with a --sort option, but any use of --sort=none (-U) disables grouping"
     )]
     group_directories_first: bool,
-    // TODO
-	#[arg(
+    // Done
+    #[arg(
         short = 'G',
         long = "no-group",
         help = "In a long listing, dont print group names"
     )]
     no_group: bool,
     // TODO
-	#[arg(
+    #[arg(
         short = 'h',
         long = "human-readable",
         help = "With -l and -s, print sizes like 1K 234M 2G etc."
     )]
     human_readable: bool,
     // TODO
-	#[arg(
+    #[arg(
         long = "si",
         help = "Like human-readable but use powers of 1000, not 1024"
     )]
     human_readable_1000: bool,
     // TODO
-	#[arg(
+    #[arg(
         short = 'H',
         long = "dereference-command-line",
         help = "Always dereference symbolic links passed as arguments"
     )]
     dereference_argument: bool,
     // TODO
-	#[arg(
+    #[arg(
         long = "dereference-command-line-symlink-to-dir",
         help = "Follow each command line symbolic link that points to a directory"
     )]
     dereference_argument_dir: bool,
-    // TODO
-	#[arg(
+    // Done
+    #[arg(
         long = "hide",
-        help = "Do not list entries which matches PATTERN, overriden by -a or -A",
+        help = "Do not list entries which matches regex PATTERN, overriden by -a or -A",
         value_name("PATTERN")
     )]
     hide: Option<String>,
     // TODO
-	#[arg(long = "hyperlink", help = "Hyperlink file names WHEN")]
+    #[arg(long = "hyperlink", help = "Hyperlink file names WHEN")]
     hyperlink_when: Option<When>,
     // TODO
-	#[arg(
+    #[arg(
         long = "indicator-style",
         help = "Append indicator with style WORD to entry names: none (default), slash (-p), file-type (--file-type), classify (-F)",
         default_value("none")
     )]
     indicator_style: Option<IndicatorWord>,
     // TODO
-	#[arg(
+    #[arg(
         short = 'i',
         long = "inode",
         help = "Print the index number of each file"
     )]
     inode: bool,
-    // TODO
-	#[arg(
+    // Done
+    #[arg(
         short = 'I',
         long = "ignore",
-        help = "Do not list entries which matches PATTERN",
+        help = "Do not list entries which matches regex PATTERN",
         value_name("PATTERN")
     )]
     ignore_pattern: Option<String>,
     // TODO
-	#[arg(
+    #[arg(
         short = 'k',
         long = "kibibytes",
         help = "Default to 1024-byte blocks for file system usage; used only with -s and directory totals"
@@ -223,8 +226,8 @@ struct Cli {
         help = "Print entry names without quoting"
     )]
     literal: bool,
-    // TODO
-    #[arg(short = 'o', help = "Like -l but do not list group information")]
+    // Done
+    #[arg(short = 'o', help = "Like -l but do not list group information - same as -lG")]
     no_group_list: bool,
     // TODO
     #[arg(short = 'p', help = "Append / to directories")]
@@ -473,6 +476,13 @@ pub fn main() {
     if cli.sort_access_ctime {
         cli.time_display_sort = Some(TimeWord::MetadataChangeTime)
     }
+    if cli.hide.is_some() && cli.ignore_pattern.is_none() && !(cli.all || cli.almost_all) {
+        cli.ignore_pattern = Some(cli.hide.clone().unwrap())
+    }
+    if cli.no_group_list {
+        cli.list = true;
+        cli.no_group = true;
+    }
 
     for file in &cli.files {
         ls(&cli, file);
@@ -489,21 +499,21 @@ fn ls(cli: &Cli, p: &PathBuf) {
     let entries: Vec<(String, PathBuf)>;
     if p.is_dir() {
         entries = dir
-        .into_iter()
-        .filter_map(|e| e.ok())
-        .map(|e| {
-            (
-                e.clone()
-                    .into_path()
-                    .file_name()
-                    .unwrap()
-                    .to_str()
-                    .unwrap()
-                    .to_string(),
-                e.into_path(),
-            )
-        })
-        .collect();
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .map(|e| {
+                (
+                    e.clone()
+                        .into_path()
+                        .file_name()
+                        .unwrap()
+                        .to_str()
+                        .unwrap()
+                        .to_string(),
+                    e.into_path(),
+                )
+            })
+            .collect();
     } else {
         // Manually create a one item vector if not a dir
         entries = vec![(p.to_str().unwrap().to_string(), p.to_owned())]
@@ -536,10 +546,25 @@ fn treat_entries(
         .collect();
 
     // Here we remove and add items as needed
-    if let Some(suffix) = cli.ignore_backups.clone() {
+    if let Some(suffix) = &cli.ignore_backups {
         entries.retain(|x| x.0.ends_with(suffix.as_str()) != true);
     }
-    
+
+    if let Some(pattern) = &cli.ignore_pattern {
+        let re = match Regex::new(pattern) {
+            Ok(x) => x,
+            Err(e) => {
+                eprintln!(
+                    "Supplied PATTERN was not a valid regex pattern: {}",
+                    e.to_string()
+                );
+                exit(1);
+            }
+        };
+        dbg!(&re);
+        entries.retain(|x| re.is_match(x.0.as_str()) != true);
+    }
+
     // Here we start treating the vector and variables
     // Sorting
     if cli.sort_word.is_none() {
@@ -582,14 +607,7 @@ fn treat_entries(
         entries.insert(1, (String::from(".."), PathBuf::from("../"), 2));
     }
 
-    // We start splitting up here
-    // If no terminal size we can assume it was called either as a background process or some other
-    // non-graphical process
-    if term_size.is_none() {
-        entries.iter().for_each(|entry| println!("{}", entry.0));
-        exit(0);
-    }
-    if cli.color == Some(When::Always) || cli.color.is_none() {
+    if cli.color == Some(When::Always) || cli.color.is_none() || (cli.color == Some(When::Auto) && term_size.is_some()) {
         entries = entries
             .into_iter()
             .map(|entry| {
@@ -602,6 +620,14 @@ fn treat_entries(
                 (style.paint(entry.0).to_string(), entry.1, entry.2)
             })
             .collect();
+    }
+
+    // We start splitting up here
+    // If no terminal size we can assume it was called either as a background process or some other
+    // non-graphical process
+    if term_size.is_none() {
+        entries.iter().for_each(|entry| println!("{}", entry.0));
+        exit(0);
     }
 
     let mut longest_entry = entries
@@ -704,15 +730,9 @@ fn normal_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>, longest_ent
     } else {
         for line in lines {
             for entry in line {
-                let style = match entry.1.as_path().ptype() {
-                    PathType::Directory => Style::new().bold().fg(Colour::Blue),
-                    PathType::Executable => Style::new().bold().fg(Colour::Green),
-                    PathType::Symlink => Style::new().bold().fg(Colour::Cyan),
-                    _ => Style::new(),
-                };
                 print!(
                     "{}{}  ",
-                    style.paint(&entry.0),
+                    entry.0,
                     match entry.1.as_path().ptype() {
                         PathType::Symlink => "@",
                         PathType::Directory => "/",
@@ -758,8 +778,8 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>) {
             };
             // Get owner and group
             let owner = users::get_current_username().unwrap_or(OsString::from("unknown"));
-
-            let group = users::get_current_groupname().unwrap_or(OsString::from("unknown"));
+            
+            let group = if cli.no_group { OsString::from("") } else { users::get_current_groupname().unwrap_or(OsString::from("unknown"))};
 
             // Create timestamps
             let file_timestamp = FileTimestamps::new(entry.1.clone());
