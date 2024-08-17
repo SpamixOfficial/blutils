@@ -1,7 +1,9 @@
-use std::{env::args, ffi::OsString, os::unix::fs::MetadataExt, path::PathBuf, process::exit};
 use nix::sys::stat::stat;
+use std::{
+    env::args, ffi::OsString, fs::Metadata, os::unix::fs::MetadataExt, path::PathBuf, process::exit,
+};
 
-use crate::utils::{PathExtras, PathType, PermissionsPlus};
+use crate::utils::{log, ModeWrapper, PathExtras, PathType, PermissionsPlus};
 
 use ansi_term::{Colour, Style};
 use chrono::{DateTime, Local, TimeZone};
@@ -227,7 +229,10 @@ struct Cli {
     )]
     literal: bool,
     // Done
-    #[arg(short = 'o', help = "Like -l but do not list group information - same as -lG")]
+    #[arg(
+        short = 'o',
+        help = "Like -l but do not list group information - same as -lG"
+    )]
     no_group_list: bool,
     // TODO
     #[arg(short = 'p', help = "Append / to directories")]
@@ -453,6 +458,28 @@ enum TimeWord {
     ModifiedTime,
 }
 
+#[derive(Debug, Clone)]
+struct EntryItem {
+    mode: ModeWrapper,
+    number_of_entries: usize,
+    owner: String,
+    group: String,
+    size: usize,
+    timestamps: DisplayTime,
+    processed_entry: String,
+    metadata_entry: Metadata,
+    inode: u64,
+}
+
+#[derive(Debug, Clone)]
+struct Longest {
+    number_of_entries: usize,
+    longest_owner: usize,
+    longest_group: usize,
+    longest_size: usize,
+    longest_inode: usize,
+}
+
 pub fn main() {
     let mut cli: Cli;
     // skip first arg if it happens to be "blutils"
@@ -607,7 +634,10 @@ fn treat_entries(
         entries.insert(1, (String::from(".."), PathBuf::from("../"), 2));
     }
 
-    if cli.color == Some(When::Always) || cli.color.is_none() || (cli.color == Some(When::Auto) && term_size.is_some()) {
+    if cli.color == Some(When::Always)
+        || cli.color.is_none()
+        || (cli.color == Some(When::Auto) && term_size.is_some())
+    {
         entries = entries
             .into_iter()
             .map(|entry| {
@@ -746,17 +776,7 @@ fn normal_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>, longest_ent
 }
 
 fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>) {
-    let mut entries: Vec<(
-        String,
-        usize,
-        String,
-        String,
-        usize,
-        String,
-        String,
-        String,
-        String,
-    )> = vec![];
+    let mut entries: Vec<EntryItem> = vec![];
     for line in lines {
         for entry in line {
             let style = match entry.1.as_path().ptype() {
@@ -769,7 +789,7 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>) {
             let metadata_entry = entry.1.metadata().unwrap();
 
             // Get the permission string (Example: -rw-r--r--, octal 644)
-            let perms_str = metadata_entry.permissions().mode_struct().to_string();
+            let perms = metadata_entry.permissions().mode_struct();
             // Get entries in directory, or 1 if its a file
             let dir_entries = if entry.1.is_dir() {
                 WalkDir::new(&entry.1).max_depth(1).into_iter().count()
@@ -778,8 +798,12 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>) {
             };
             // Get owner and group
             let owner = users::get_current_username().unwrap_or(OsString::from("unknown"));
-            
-            let group = if cli.no_group { OsString::from("") } else { users::get_current_groupname().unwrap_or(OsString::from("unknown"))};
+
+            let group = if cli.no_group {
+                OsString::from("")
+            } else {
+                users::get_current_groupname().unwrap_or(OsString::from("unknown"))
+            };
 
             // Create timestamps
             let file_timestamp = FileTimestamps::new(entry.1.clone());
@@ -795,73 +819,96 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>) {
                 DisplayTime::new(file_timestamp.modified)
             };
 
+            let inode = if cli.inode {
+                match stat(&entry.1) {
+                    Ok(x) => x.st_ino,
+                    Err(e) => {
+                        log(
+                            cli.verbose,
+                            format!("Inode failed for {}: {}", &entry.1.display(), e.to_string()),
+                        );
+                        0
+                    }
+                }
+            } else {
+                0
+            };
+
             // Finally create the format string
-            let entry_item = (
-                perms_str,
-                dir_entries,
-                owner.to_str().unwrap().to_string(),
-                group.to_str().unwrap().to_string(),
-                metadata_entry.size() as usize,
-                timestamp.date,
-                timestamp.month,
-                timestamp.time,
-                style.paint(entry.0.clone()).to_string()
+            let entry_item = EntryItem {
+                mode: perms,
+                number_of_entries: dir_entries,
+                owner: owner.to_str().unwrap().to_string(),
+                group: group.to_str().unwrap().to_string(),
+                size: metadata_entry.size() as usize,
+                timestamps: timestamp,
+                processed_entry: style.paint(entry.0.clone()).to_string()
                     + match entry.1.as_path().ptype() {
                         PathType::Symlink => "@",
                         PathType::Directory => "/",
                         PathType::Executable => "*",
                         _ => "",
                     },
-            );
+                metadata_entry,
+                inode,
+            };
             entries.push(entry_item);
         }
     }
 
     // All "longest-variables"
-    let longest = (
-        entries
+    let longest = Longest {
+        number_of_entries: entries
             .clone()
             .iter()
-            .map(|x| x.1.to_string().chars().count())
+            .map(|x| x.number_of_entries.to_string().chars().count())
             .max()
             .unwrap_or(0),
-        entries
+        longest_owner: entries
             .clone()
             .iter()
-            .map(|x| x.2.chars().count())
+            .map(|x| x.owner.chars().count())
             .max()
             .unwrap_or(0),
-        entries
+        longest_group: entries
             .clone()
             .iter()
-            .map(|x| x.3.chars().count())
+            .map(|x| x.group.chars().count())
             .max()
             .unwrap_or(0),
-        entries
+        longest_size: entries
             .clone()
             .iter()
-            .map(|x| x.4.to_string().chars().count())
+            .map(|x| x.size.to_string().chars().count())
             .max()
             .unwrap_or(0),
-    );
+        longest_inode: entries
+            .clone()
+            .iter()
+            .map(|x| x.inode.to_string().chars().count())
+            .max()
+            .unwrap_or(0),
+    };
 
     println!("total {}", entries.len());
     entries.iter().for_each(|f| {
         println!(
-            "{} {: >longest_dir$} {: >longest_user$} {: >longest_group$} {: >longest_size$} {} {} {} {}",
-            f.0,
-            f.1,
-            f.2,
-            f.3,
-            f.4,
-            f.5,
-            f.6,
-            f.7,
-            f.8,
-            longest_dir = longest.0,
-            longest_user = longest.1,
-            longest_group = longest.2,
-            longest_size = longest.3,
+            "{: >longest_inode$} {} {: >longest_dir$} {: >longest_user$} {: >longest_group$} {: >longest_size$} {} {} {} {}",
+            if cli.inode { format!("{}", f.inode) } else { String::from("") },
+            f.mode.to_string(),
+            f.number_of_entries,
+            f.owner,
+            f.group,
+            f.size,
+            f.timestamps.month,
+            f.timestamps.date,
+            f.timestamps.time,
+            f.processed_entry,
+            longest_inode = longest.longest_inode,
+            longest_dir = longest.number_of_entries,
+            longest_user = longest.longest_owner,
+            longest_group = longest.longest_group,
+            longest_size = longest.longest_size,
         )
     });
 }
