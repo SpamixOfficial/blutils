@@ -64,7 +64,7 @@ struct Cli {
     // Done
     #[arg(
         long = "no-preserve-root",
-        help = "Dont treat '/' specially (the default)"
+        help = "Don't treat '/' specially (the default)"
     )]
     no_preserve_root: bool,
     // Done
