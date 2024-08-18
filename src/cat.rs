@@ -3,6 +3,7 @@ use std::ffi::OsStr;
 use std::fs;
 use std::io::{stdin, Read};
 use std::path::Path;
+use std::process::exit;
 
 /* Syntax highlighting */
 use syntect::easy::HighlightLines;
@@ -137,10 +138,15 @@ fn highlight(cli: &Cli, contents: String, ext: Option<&OsStr>) -> String {
     let ps = SyntaxSet::load_defaults_newlines();
     let ts = ThemeSet::load_defaults();
 
-    // TODO: Fix color background
     let theme = ts.themes["base16-ocean.dark"].clone();
 
-    let syntax = ps.find_syntax_by_extension(extension).unwrap();
+    let syntax = match ps.find_syntax_by_extension(extension) {
+        Some(x) => x,
+        None => {
+            println!("Uh oh! Looks like the \"{}\" extension isnt supported yet by syntect!", extension);
+            exit(1);
+        } 
+    };
     let mut h = HighlightLines::new(syntax, &theme);
 
     for line in LinesWithEndings::from(contents.as_str()) {

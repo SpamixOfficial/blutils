@@ -3,7 +3,7 @@ use std::{
     env::args, ffi::OsString, fs::Metadata, os::unix::fs::MetadataExt, path::PathBuf, process::exit,
 };
 
-use crate::utils::{log, ModeWrapper, PathExtras, PathType, PermissionsPlus};
+use crate::utils::{c_escape, log, ModeWrapper, PathExtras, PathType, PermissionsPlus};
 
 use ansi_term::{Colour, Style};
 use chrono::{DateTime, Local, TimeZone};
@@ -43,7 +43,7 @@ struct Cli {
     //TODO
     #[arg(long = "author", help = "With -l, print the author of each file")]
     author: bool,
-    //TODO
+    // Done
     #[arg(
         short = 'b',
         long = "escape",
@@ -74,28 +74,28 @@ struct Cli {
     sort_access_ctime: bool,
     #[arg(short = 'C', help = "List entries by columns", default_value("true"))]
     column: bool,
-    // TODO
+    // Done
     #[arg(
         long = "color",
         help = "Color the output WHEN",
         default_value("always")
     )]
     color: Option<When>,
-    // TODO
+    // Done
     #[arg(
         short = 'd',
         long = "directory",
         help = "List directories themselves, not their contents"
     )]
     directory: bool,
-    // TODO
-    #[arg(
+    // Not planned... TODO
+    /*#[arg(
         short = 'D',
         long = "dired",
         help = "Generate output designed for Emacs' dired mode"
     )]
-    dired: bool,
-    // TODO
+    dired: bool,*/
+    // Done
     #[arg(short = 'f', help = "Do not sort, enable -aU, disable -ls --color")]
     no_sort_color: bool,
     // TODO
@@ -176,7 +176,7 @@ struct Cli {
         default_value("none")
     )]
     indicator_style: Option<IndicatorWord>,
-    // TODO
+    // Done
     #[arg(
         short = 'i',
         long = "inode",
@@ -511,6 +511,16 @@ pub fn main() {
         cli.no_group = true;
     }
 
+    if cli.no_sort_color {
+        dbg!("no_sort_color");
+        cli.all = true;
+        cli.no_sort = true;
+        cli.list = false;
+        cli.size_blocks = false;
+        cli.color = Some(When::Never);
+        dbg!(&cli);
+    }
+
     for file in &cli.files {
         ls(&cli, file);
     }
@@ -524,7 +534,7 @@ fn ls(cli: &Cli, p: &PathBuf) {
 
     // First we get and collect all the entries into a vector of strings
     let entries: Vec<(String, PathBuf)>;
-    if p.is_dir() {
+    if p.is_dir() && !cli.directory {
         entries = dir
             .into_iter()
             .filter_map(|e| e.ok())
@@ -623,8 +633,8 @@ fn treat_entries(
             _ => (),
         }
     }
-    // If the all or almost all mode isn't activated we need to do some filtering
-    if !cli.all || !cli.almost_all {
+    // If the all and almost all mode isn't activated we need to do some filtering
+    if !cli.almost_all && !cli.all {
         entries = entries
             .into_iter()
             .filter_map(|f| if !f.0.starts_with(".") { Some(f) } else { None })
@@ -632,6 +642,14 @@ fn treat_entries(
     } else if cli.all {
         entries.insert(0, (String::from("."), PathBuf::from("./"), 1));
         entries.insert(1, (String::from(".."), PathBuf::from("../"), 2));
+    }
+
+    // Escaping
+    if cli.print_escapes {
+        entries = entries
+            .into_iter()
+            .map(|entry| (c_escape(entry.0, true), entry.1, entry.2))
+            .collect()
     }
 
     if cli.color == Some(When::Always)
