@@ -114,13 +114,13 @@ struct Cli {
         help = "Across -x, commas -m, horizontal -x, long -l, single-column -1, verbose -l, vertical -C"
     )]
     format: Option<FormatWord>,
-    // TODO
-    #[arg(long = "full-time", help = "Like -l  --time-style=full-iso")]
-    alias_list_time_full_iso: bool,
-    // TODO
+    // Not planned, might happen in future, TODO
+    /*#[arg(long = "full-time", help = "Like -l  --time-style=full-iso")]
+    alias_list_time_full_iso: bool,*/
+    // Done
     #[arg(short = 'g', help = "Like -l but does not list owner")]
     list_no_owner: bool,
-    // TODO
+    // Done
     #[arg(
         long = "group-directories-first",
         help = "Group directories before files; can be augmented with a --sort option, but any use of --sort=none (-U) disables grouping"
@@ -221,11 +221,11 @@ struct Cli {
         help = "Like l, but list numeric user and group IDs"
     )]
     numeric_list: bool,
-    // TODO
+    // Done
     #[arg(
         short = 'N',
         long = "literal",
-        help = "Print entry names without quoting"
+        help = "Print entry names without quoting (the default)"
     )]
     literal: bool,
     // Done
@@ -296,13 +296,13 @@ struct Cli {
         value_name("WORD")
     )]
     time_display_sort: Option<TimeWord>,
-    // TODO
-    #[arg(
+    // Not planned, might happen in the future... TODO
+    /*#[arg(
         long = "time-style",
         help = "Time/Date format of -l; TIME_STYLE syntax: {TODO}",
         value_name("TIME_STYLE")
     )]
-    time_style: Option<String>,
+    time_style: Option<String>,*/
     // done
     #[arg(short = 't', help = "Sort by time")]
     time_sort: bool,
@@ -334,6 +334,7 @@ struct Cli {
         value_name("COLS")
     )]
     output_width: Option<u32>,
+    #[arg()]
     // Done
     #[arg(short = 'x', help = "List entries by lines instead of columns")]
     list_lines: bool,
@@ -633,6 +634,11 @@ fn treat_entries(
             _ => (),
         }
     }
+
+    if cli.group_directories_first && cli.sort_word != Some(SortWord::None) {
+        entries.sort_by(|a, b| b.1.is_dir().cmp(&a.1.is_dir()));
+    }
+
     // If the all and almost all mode isn't activated we need to do some filtering
     if !cli.almost_all && !cli.all {
         entries = entries
@@ -815,7 +821,11 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>) {
                 1
             };
             // Get owner and group
-            let owner = users::get_current_username().unwrap_or(OsString::from("unknown"));
+            let owner = if cli.list_no_owner {
+                OsString::from("")
+            } else {
+                users::get_current_username().unwrap_or(OsString::from("unknown"))
+            };
 
             let group = if cli.no_group {
                 OsString::from("")
