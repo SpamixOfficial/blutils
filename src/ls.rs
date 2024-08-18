@@ -470,6 +470,7 @@ struct EntryItem {
     processed_entry: String,
     metadata_entry: Metadata,
     inode: u64,
+    author: String,
 }
 
 #[derive(Debug, Clone)]
@@ -479,6 +480,7 @@ struct Longest {
     longest_group: usize,
     longest_size: usize,
     longest_inode: usize,
+    longest_author: usize,
 }
 
 pub fn main() {
@@ -879,6 +881,13 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>) {
                     },
                 metadata_entry,
                 inode,
+                // This is hilarious, but the author is just the owner. Why does this option even
+                // exist?
+                author: if cli.author {
+                    owner.to_str().unwrap().to_string() + " "
+                } else {
+                    String::from("")
+                },
             };
             entries.push(entry_item);
         }
@@ -916,27 +925,35 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>) {
             .map(|x| x.inode.to_string().chars().count())
             .max()
             .unwrap_or(0),
+        longest_author: entries
+            .clone()
+            .iter()
+            .map(|x| x.author.chars().count())
+            .max()
+            .unwrap_or(0),
     };
 
     println!("total {}", entries.len());
     entries.iter().for_each(|f| {
         println!(
-            "{: >longest_inode$} {} {: >longest_dir$} {: >longest_user$} {: >longest_group$} {: >longest_size$} {} {} {} {}",
-            if cli.inode { format!("{}", f.inode) } else { String::from("") },
+            "{: >longest_inode$} {} {: >longest_dir$} {: >longest_user$} {: >longest_group$} {: >longest_author$}{: >longest_size$} {} {} {} {}",
+            if cli.inode { format!("{}", f.inode)} else { String::from("") },
             f.mode.to_string(),
             f.number_of_entries,
             f.owner,
             f.group,
+            f.author,
             f.size,
             f.timestamps.month,
             f.timestamps.date,
             f.timestamps.time,
             f.processed_entry,
-            longest_inode = longest.longest_inode,
+            longest_inode = if cli.inode { longest.longest_inode } else {0},
             longest_dir = longest.number_of_entries,
             longest_user = longest.longest_owner,
             longest_group = longest.longest_group,
             longest_size = longest.longest_size,
+            longest_author = longest.longest_author
         )
     });
 }
