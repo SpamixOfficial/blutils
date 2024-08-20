@@ -66,8 +66,10 @@ struct Cli {
         help = "With -lt: sort by, and show, ctime (time of last change of file status information); with -l: show ctime and sort by name; otherwise: sort by ctime, newest first"
     )]
     sort_access_ctime: bool,
-    #[arg(short = 'C', help = "List entries by columns", default_value("true"))]
-    column: bool,
+    // I could simply not get this to work, so now lines is the default. Also it looks better (and
+    // makes wayyyy more sense!)
+    //#[arg(short = 'C', help = "List entries by columns", default_value("true"))]
+    //column: bool,
     #[arg(
         long = "color",
         help = "Color the output WHEN",
@@ -304,13 +306,13 @@ struct Cli {
         value_name("COLS")
     )]
     output_width: Option<u32>,
-    // Done
-    #[arg(short = 'x', help = "List entries by lines instead of columns")]
-    list_lines: bool,
+    // Not needed as its the default
+    //#[arg(short = 'x', help = "List entries by lines instead of columns")]
+    //list_lines: bool,
     // TODO
     #[arg(short = 'X', help = "Sort alphabetically by entry extension")]
     sort_extension: bool,
-    // TODO
+    // Done
     #[arg(long = "zero", help = "End each output line with NUL, not newline")]
     end_nul: bool,
     // Done
@@ -553,7 +555,9 @@ fn treat_entries(
     // If no terminal size we can assume it was called either as a background process or some other
     // non-graphical process
     if term_size.is_none() {
-        entries.iter().for_each(|entry| println!("{}", entry.0));
+        entries
+            .iter()
+            .for_each(|entry| print!("{}{}", entry.0, if cli.end_nul { "\0" } else { "\n" }));
         exit(0);
     }
     if cli.color == Some(When::Always) || cli.color.is_none() {
@@ -579,15 +583,15 @@ fn treat_entries(
 
     // Get the maximum entries per line and use this to create a new Vec<Vec<String>>
     let entry_per_line = term_size.unwrap().cols as usize / (longest_entry);
-    if cli.list_lines {
-        (
-            entries
-                .chunks(entry_per_line)
-                .map(|s| s.into())
-                .collect::<Vec<Vec<(String, PathBuf, usize)>>>(),
-            longest_entry,
-        )
-    } else {
+    //if cli.list_lines {
+    (
+        entries
+            .chunks(entry_per_line)
+            .map(|s| s.into())
+            .collect::<Vec<Vec<(String, PathBuf, usize)>>>(),
+        longest_entry,
+    )
+    /*} else {
         let mut chunk_size = entries.len() / entry_per_line;
         if chunk_size < 1 {
             chunk_size = entries.len()
@@ -599,19 +603,20 @@ fn treat_entries(
                 .collect::<Vec<Vec<(String, PathBuf, usize)>>>(),
             longest_entry,
         )
-    }
+    }*/
 }
 
 fn normal_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>, longest_entry: usize) {
     if cli.one_line {
         lines.iter().for_each(|entries| {
             for entry in entries {
-                println!("{}", entry.0)
+                print!("{}", entry.0);
+                print!("{}", if cli.end_nul { "\0" } else { "\n" })
             }
         });
         exit(0);
     }
-    if lines.len() > 1 && cli.list_lines {
+    if lines.len() > 2 {
         for line in lines {
             for entry in line {
                 /*let style = match entry.1.as_path().ptype() {
@@ -633,37 +638,37 @@ fn normal_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>, longest_ent
                 );
                 print!("{}", entry_format_string);
             }
-            print!("\n");
+            print!("{}", if cli.end_nul { "\0" } else { "\n" })
         }
-    } else if lines.len() > 1 {
-        let entries = lines.clone().get(1).unwrap().len();
-        for i in 0..entries - 1 {
-            for (i2, line) in lines.iter().enumerate() {
-                let entry = if let Some(x) = line.get(i) {
-                    x
+    /*} else if lines.len() > 1 {
+    let entries = lines.clone().get(1).unwrap().len();
+    for i in 0..entries - 1 {
+        for (i2, line) in lines.iter().enumerate() {
+            let entry = if let Some(x) = line.get(i) {
+                x
+            } else {
+                continue;
+            };
+            let entry_format_string = format!(
+                "{: <width$}",
+                entry.0.clone()
+                    + match entry.1.as_path().ptype() {
+                        PathType::Symlink => "@",
+                        PathType::Directory => "/",
+                        PathType::Executable => "*",
+                        _ => "",
+                    },
+                // Doing witchcraft here to make sure formatting looks nice!
+                width = if i2 != lines.len() - 1 {
+                    longest_entry + 2 + (entry.0.len() - entry.2)
                 } else {
-                    continue;
-                };
-                let entry_format_string = format!(
-                    "{: <width$}",
-                    entry.0.clone()
-                        + match entry.1.as_path().ptype() {
-                            PathType::Symlink => "@",
-                            PathType::Directory => "/",
-                            PathType::Executable => "*",
-                            _ => "",
-                        },
-                    // Doing witchcraft here to make sure formatting looks nice!
-                    width = if i2 != lines.len() - 1 {
-                        longest_entry + 2 + (entry.0.len() - entry.2)
-                    } else {
-                        0
-                    }
-                );
-                print!("{}", entry_format_string);
-            }
-            print!("\n");
+                    0
+                }
+            );
+            print!("{}", entry_format_string);
         }
+        print!("\n");
+    }*/
     } else {
         for line in lines {
             for entry in line {
@@ -684,7 +689,7 @@ fn normal_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>, longest_ent
                     }
                 );
             }
-            print!("\n");
+            print!("{}", if cli.end_nul { "\0" } else { "\n" })
         }
     }
 }
@@ -789,9 +794,10 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>) {
             .unwrap_or(0),
     );
 
-    println!("total {}", entries.len());
+    print!("total {}", entries.len());
+    print!("{}", if cli.end_nul { "\0" } else { "\n" });
     entries.iter().for_each(|f| {
-        println!(
+        print!(
             "{} {: >longest_dir$} {: >longest_user$} {: >longest_group$} {: >longest_size$} {} {} {} {}",
             f.0,
             f.1,
@@ -806,7 +812,8 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>) {
             longest_user = longest.1,
             longest_group = longest.2,
             longest_size = longest.3,
-        )
+        );
+        print!("{}", if cli.end_nul { "\0" } else { "\n" })
     });
 }
 
