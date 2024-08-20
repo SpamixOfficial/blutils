@@ -1,11 +1,15 @@
-use std::{env::args, ffi::OsString, os::unix::fs::MetadataExt, path::PathBuf, process::exit};
+use nix::sys::stat::stat;
+use std::{
+    env::args, ffi::OsString, fs::Metadata, os::unix::fs::MetadataExt, path::PathBuf, process::exit,
+};
 
-use crate::utils::{PathExtras, PathType, PermissionsPlus};
+use crate::utils::{c_escape, log, ModeWrapper, PathExtras, PathType, PermissionsPlus};
 
 use ansi_term::{Colour, Style};
 use chrono::{DateTime, Local, TimeZone};
 
 use clap::Parser;
+use regex::Regex;
 use walkdir::WalkDir;
 
 const PROGRM: &str = "ls";
@@ -39,24 +43,26 @@ struct Cli {
     //TODO
     #[arg(long = "author", help = "With -l, print the author of each file")]
     author: bool,
-    //TODO
+    // Done
     #[arg(
         short = 'b',
         long = "escape",
         help = "Print C-style escapes for nongraphic characters"
     )]
     print_escapes: bool,
+    // TODO
     #[arg(
         long = "block_size",
         help = "With -l, scale sizes by SIZE when printing them; e.g., '--block-size=M'; see SIZE format below"
     )]
     block_size: Option<BlockSize>,
-    // TODO
+    // Done
     #[arg(
         short = 'B',
         long = "ignore-backups",
         help = "Do not list entries ending with ~ or a specified suffix",
         value_name("suffix"),
+        num_args=0..=1,
         default_missing_value("~")
     )]
     ignore_backups: Option<String>,
@@ -76,97 +82,117 @@ struct Cli {
         default_value("always")
     )]
     color: Option<When>,
+    // Done
     #[arg(
         short = 'd',
         long = "directory",
         help = "List directories themselves, not their contents"
     )]
     directory: bool,
-    #[arg(
+    // Not planned... TODO
+    /*#[arg(
         short = 'D',
         long = "dired",
         help = "Generate output designed for Emacs' dired mode"
     )]
-    dired: bool,
+    dired: bool,*/
+    // Done
     #[arg(short = 'f', help = "Do not sort, enable -aU, disable -ls --color")]
     no_sort_color: bool,
+    // TODO
     #[arg(
         short = 'F',
         long = "classify",
         help = "Append indicator (one of */=>@|) to entries WHEN"
     )]
     classify: Option<When>,
+    // TODO
     #[arg(long = "file-type", help = "Likewise, except do not append '*'")]
     file_type: bool,
+    // TODO
     #[arg(
         long = "format",
         help = "Across -x, commas -m, horizontal -x, long -l, single-column -1, verbose -l, vertical -C"
     )]
     format: Option<FormatWord>,
-    #[arg(long = "full-time", help = "Like -l  --time-style=full-iso")]
-    alias_list_time_full_iso: bool,
+    // Not planned, might happen in future, TODO
+    /*#[arg(long = "full-time", help = "Like -l  --time-style=full-iso")]
+    alias_list_time_full_iso: bool,*/
+    // Done
     #[arg(short = 'g', help = "Like -l but does not list owner")]
     list_no_owner: bool,
+    // Done
     #[arg(
         long = "group-directories-first",
         help = "Group directories before files; can be augmented with a --sort option, but any use of --sort=none (-U) disables grouping"
     )]
     group_directories_first: bool,
+    // Done
     #[arg(
         short = 'G',
         long = "no-group",
         help = "In a long listing, dont print group names"
     )]
     no_group: bool,
+    // TODO
     #[arg(
         short = 'h',
         long = "human-readable",
         help = "With -l and -s, print sizes like 1K 234M 2G etc."
     )]
     human_readable: bool,
+    // TODO
     #[arg(
         long = "si",
         help = "Like human-readable but use powers of 1000, not 1024"
     )]
     human_readable_1000: bool,
+    // TODO
     #[arg(
         short = 'H',
         long = "dereference-command-line",
         help = "Always dereference symbolic links passed as arguments"
     )]
     dereference_argument: bool,
+    // TODO
     #[arg(
         long = "dereference-command-line-symlink-to-dir",
         help = "Follow each command line symbolic link that points to a directory"
     )]
     dereference_argument_dir: bool,
+    // Done
     #[arg(
         long = "hide",
-        help = "Do not list entries which matches PATTERN, overriden by -a or -A",
+        help = "Do not list entries which matches regex PATTERN, overriden by -a or -A",
         value_name("PATTERN")
     )]
     hide: Option<String>,
+    // TODO
     #[arg(long = "hyperlink", help = "Hyperlink file names WHEN")]
     hyperlink_when: Option<When>,
+    // TODO
     #[arg(
         long = "indicator-style",
         help = "Append indicator with style WORD to entry names: none (default), slash (-p), file-type (--file-type), classify (-F)",
         default_value("none")
     )]
     indicator_style: Option<IndicatorWord>,
+    // Done
     #[arg(
         short = 'i',
         long = "inode",
         help = "Print the index number of each file"
     )]
     inode: bool,
+    // Done
     #[arg(
         short = 'I',
         long = "ignore",
-        help = "Do not list entries which matches PATTERN",
+        help = "Do not list entries which matches regex PATTERN",
         value_name("PATTERN")
     )]
     ignore_pattern: Option<String>,
+    // TODO
     #[arg(
         short = 'k',
         long = "kibibytes",
@@ -196,15 +222,18 @@ struct Cli {
         help = "Like l, but list numeric user and group IDs"
     )]
     numeric_list: bool,
-    // TODO
+    // Done
     #[arg(
         short = 'N',
         long = "literal",
-        help = "Print entry names without quoting"
+        help = "Print entry names without quoting (the default)"
     )]
     literal: bool,
-    // TODO
-    #[arg(short = 'o', help = "Like -l but do not list group information")]
+    // Done
+    #[arg(
+        short = 'o',
+        help = "Like -l but do not list group information - same as -lG"
+    )]
     no_group_list: bool,
     // TODO
     #[arg(short = 'p', help = "Append / to directories")]
@@ -268,13 +297,13 @@ struct Cli {
         value_name("WORD")
     )]
     time_display_sort: Option<TimeWord>,
-    // TODO
-    #[arg(
+    // Not planned, might happen in the future... TODO
+    /*#[arg(
         long = "time-style",
         help = "Time/Date format of -l; TIME_STYLE syntax: {TODO}",
         value_name("TIME_STYLE")
     )]
-    time_style: Option<String>,
+    time_style: Option<String>,*/
     // done
     #[arg(short = 't', help = "Sort by time")]
     time_sort: bool,
@@ -430,6 +459,30 @@ enum TimeWord {
     ModifiedTime,
 }
 
+#[derive(Debug, Clone)]
+struct EntryItem {
+    mode: ModeWrapper,
+    number_of_entries: usize,
+    owner: String,
+    group: String,
+    size: usize,
+    timestamps: DisplayTime,
+    processed_entry: String,
+    metadata_entry: Metadata,
+    inode: u64,
+    author: String,
+}
+
+#[derive(Debug, Clone)]
+struct Longest {
+    number_of_entries: usize,
+    longest_owner: usize,
+    longest_group: usize,
+    longest_size: usize,
+    longest_inode: usize,
+    longest_author: usize,
+}
+
 pub fn main() {
     let mut cli: Cli;
     // skip first arg if it happens to be "blutils"
@@ -453,6 +506,23 @@ pub fn main() {
     if cli.sort_access_ctime {
         cli.time_display_sort = Some(TimeWord::MetadataChangeTime)
     }
+    if cli.hide.is_some() && cli.ignore_pattern.is_none() && !(cli.all || cli.almost_all) {
+        cli.ignore_pattern = Some(cli.hide.clone().unwrap())
+    }
+    if cli.no_group_list {
+        cli.list = true;
+        cli.no_group = true;
+    }
+
+    if cli.no_sort_color {
+        dbg!("no_sort_color");
+        cli.all = true;
+        cli.no_sort = true;
+        cli.list = false;
+        cli.size_blocks = false;
+        cli.color = Some(When::Never);
+        dbg!(&cli);
+    }
 
     for file in &cli.files {
         ls(&cli, file);
@@ -466,22 +536,28 @@ fn ls(cli: &Cli, p: &PathBuf) {
     }
 
     // First we get and collect all the entries into a vector of strings
-    let entries: Vec<(String, PathBuf)> = dir
-        .into_iter()
-        .filter_map(|e| e.ok())
-        .map(|e| {
-            (
-                e.clone()
-                    .into_path()
-                    .file_name()
-                    .unwrap()
-                    .to_str()
-                    .unwrap()
-                    .to_string(),
-                e.into_path(),
-            )
-        })
-        .collect();
+    let entries: Vec<(String, PathBuf)>;
+    if p.is_dir() && !cli.directory {
+        entries = dir
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .map(|e| {
+                (
+                    e.clone()
+                        .into_path()
+                        .file_name()
+                        .unwrap()
+                        .to_str()
+                        .unwrap()
+                        .to_string(),
+                    e.into_path(),
+                )
+            })
+            .collect();
+    } else {
+        // Manually create a one item vector if not a dir
+        entries = vec![(p.to_str().unwrap().to_string(), p.to_owned())]
+    }
     // Create the lines variable we will use later
     // Also get longest entry because the processing introduces asci control characters in most
     // cases!
@@ -508,6 +584,26 @@ fn treat_entries(
         .into_iter()
         .map(|f| (f.0.clone(), f.1, f.0.len()))
         .collect();
+
+    // Here we remove and add items as needed
+    if let Some(suffix) = &cli.ignore_backups {
+        entries.retain(|x| x.0.ends_with(suffix.as_str()) != true);
+    }
+
+    if let Some(pattern) = &cli.ignore_pattern {
+        let re = match Regex::new(pattern) {
+            Ok(x) => x,
+            Err(e) => {
+                eprintln!(
+                    "Supplied PATTERN was not a valid regex pattern: {}",
+                    e.to_string()
+                );
+                exit(1);
+            }
+        };
+        dbg!(&re);
+        entries.retain(|x| re.is_match(x.0.as_str()) != true);
+    }
 
     // Here we start treating the vector and variables
     // Sorting
@@ -540,8 +636,13 @@ fn treat_entries(
             _ => (),
         }
     }
-    // If the all or almost all mode isn't activated we need to do some filtering
-    if !cli.all || !cli.almost_all {
+
+    if cli.group_directories_first && cli.sort_word != Some(SortWord::None) {
+        entries.sort_by(|a, b| b.1.is_dir().cmp(&a.1.is_dir()));
+    }
+
+    // If the all and almost all mode isn't activated we need to do some filtering
+    if !cli.almost_all && !cli.all {
         entries = entries
             .into_iter()
             .filter_map(|f| if !f.0.starts_with(".") { Some(f) } else { None })
@@ -560,7 +661,11 @@ fn treat_entries(
             .for_each(|entry| print!("{}{}", entry.0, if cli.end_nul { "\0" } else { "\n" }));
         exit(0);
     }
-    if cli.color == Some(When::Always) || cli.color.is_none() {
+
+    if cli.color == Some(When::Always)
+        || cli.color.is_none()
+        || (cli.color == Some(When::Auto) && term_size.is_some())
+    {
         entries = entries
             .into_iter()
             .map(|entry| {
@@ -575,12 +680,24 @@ fn treat_entries(
             .collect();
     }
 
-    let longest_entry = entries
+    // We start splitting up here
+    // If no terminal size we can assume it was called either as a background process or some other
+    // non-graphical process
+    if term_size.is_none() {
+        entries.iter().for_each(|entry| println!("{}", entry.0));
+        exit(0);
+    }
+
+    let mut longest_entry = entries
         .iter()
         .map(|x| x.0.len() + 2 + x.0.len() - x.2)
         .max()
         .unwrap_or(0);
-
+    // Here we can safely assume that the above function failed because the entries list is too
+    // short, so we simply set it ourselves
+    if longest_entry == 0 && entries.len() == 1 {
+        longest_entry = entries.get(0).unwrap().0.len();
+    }
     // Get the maximum entries per line and use this to create a new Vec<Vec<String>>
     let entry_per_line = term_size.unwrap().cols as usize / (longest_entry);
     //if cli.list_lines {
@@ -593,7 +710,7 @@ fn treat_entries(
     )
     /*} else {
         let mut chunk_size = entries.len() / entry_per_line;
-        if chunk_size < 1 {
+        if chunk_size < 2 {
             chunk_size = entries.len()
         };
         (
@@ -634,7 +751,7 @@ fn normal_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>, longest_ent
                             PathType::Executable => "*",
                             _ => " ",
                         },
-                    width = longest_entry + 2 + (entry.0.len() - entry.2)
+                    width = longest_entry + 1 + (entry.0.len() - entry.2)
                 );
                 print!("{}", entry_format_string);
             }
@@ -672,15 +789,9 @@ fn normal_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>, longest_ent
     } else {
         for line in lines {
             for entry in line {
-                let style = match entry.1.as_path().ptype() {
-                    PathType::Directory => Style::new().bold().fg(Colour::Blue),
-                    PathType::Executable => Style::new().bold().fg(Colour::Green),
-                    PathType::Symlink => Style::new().bold().fg(Colour::Cyan),
-                    _ => Style::new(),
-                };
                 print!(
                     "{}{}  ",
-                    style.paint(&entry.0),
+                    entry.0,
                     match entry.1.as_path().ptype() {
                         PathType::Symlink => "@",
                         PathType::Directory => "/",
@@ -695,17 +806,7 @@ fn normal_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>, longest_ent
 }
 
 fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>) {
-    let mut entries: Vec<(
-        String,
-        usize,
-        String,
-        String,
-        usize,
-        String,
-        String,
-        String,
-        String,
-    )> = vec![];
+    let mut entries: Vec<EntryItem> = vec![];
     for line in lines {
         for entry in line {
             let style = match entry.1.as_path().ptype() {
@@ -718,7 +819,7 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>) {
             let metadata_entry = entry.1.metadata().unwrap();
 
             // Get the permission string (Example: -rw-r--r--, octal 644)
-            let perms_str = metadata_entry.permissions().mode_struct().to_string();
+            let perms = metadata_entry.permissions().mode_struct();
             // Get entries in directory, or 1 if its a file
             let dir_entries = if entry.1.is_dir() {
                 WalkDir::new(&entry.1).max_depth(1).into_iter().count()
@@ -726,9 +827,17 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>) {
                 1
             };
             // Get owner and group
-            let owner = users::get_current_username().unwrap_or(OsString::from("unknown"));
+            let owner = if cli.list_no_owner {
+                OsString::from("")
+            } else {
+                users::get_current_username().unwrap_or(OsString::from("unknown"))
+            };
 
-            let group = users::get_current_groupname().unwrap_or(OsString::from("unknown"));
+            let group = if cli.no_group {
+                OsString::from("")
+            } else {
+                users::get_current_groupname().unwrap_or(OsString::from("unknown"))
+            };
 
             // Create timestamps
             let file_timestamp = FileTimestamps::new(entry.1.clone());
@@ -744,76 +853,113 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>) {
                 DisplayTime::new(file_timestamp.modified)
             };
 
+            let inode = if cli.inode {
+                match stat(&entry.1) {
+                    Ok(x) => x.st_ino,
+                    Err(e) => {
+                        log(
+                            cli.verbose,
+                            format!("Inode failed for {}: {}", &entry.1.display(), e.to_string()),
+                        );
+                        0
+                    }
+                }
+            } else {
+                0
+            };
+
             // Finally create the format string
-            let entry_item = (
-                perms_str,
-                dir_entries,
-                owner.to_str().unwrap().to_string(),
-                group.to_str().unwrap().to_string(),
-                metadata_entry.size() as usize,
-                timestamp.date,
-                timestamp.month,
-                timestamp.time,
-                style.paint(entry.0.clone()).to_string()
+            let entry_item = EntryItem {
+                mode: perms,
+                number_of_entries: dir_entries,
+                owner: owner.to_str().unwrap().to_string(),
+                group: group.to_str().unwrap().to_string(),
+                size: metadata_entry.size() as usize,
+                timestamps: timestamp,
+                processed_entry: style.paint(entry.0.clone()).to_string()
                     + match entry.1.as_path().ptype() {
                         PathType::Symlink => "@",
                         PathType::Directory => "/",
                         PathType::Executable => "*",
                         _ => "",
                     },
-            );
+                metadata_entry,
+                inode,
+                // This is hilarious, but the author is just the owner. Why does this option even
+                // exist?
+                author: if cli.author {
+                    owner.to_str().unwrap().to_string() + " "
+                } else {
+                    String::from("")
+                },
+            };
             entries.push(entry_item);
         }
     }
 
     // All "longest-variables"
-    let longest = (
-        entries
+    let longest = Longest {
+        number_of_entries: entries
             .clone()
             .iter()
-            .map(|x| x.1.to_string().chars().count())
+            .map(|x| x.number_of_entries.to_string().chars().count())
             .max()
             .unwrap_or(0),
-        entries
+        longest_owner: entries
             .clone()
             .iter()
-            .map(|x| x.2.chars().count())
+            .map(|x| x.owner.chars().count())
             .max()
             .unwrap_or(0),
-        entries
+        longest_group: entries
             .clone()
             .iter()
-            .map(|x| x.3.chars().count())
+            .map(|x| x.group.chars().count())
             .max()
             .unwrap_or(0),
-        entries
+        longest_size: entries
             .clone()
             .iter()
-            .map(|x| x.4.to_string().chars().count())
+            .map(|x| x.size.to_string().chars().count())
             .max()
             .unwrap_or(0),
-    );
+        longest_inode: entries
+            .clone()
+            .iter()
+            .map(|x| x.inode.to_string().chars().count())
+            .max()
+            .unwrap_or(0),
+        longest_author: entries
+            .clone()
+            .iter()
+            .map(|x| x.author.chars().count())
+            .max()
+            .unwrap_or(0),
+    };
 
     print!("total {}", entries.len());
     print!("{}", if cli.end_nul { "\0" } else { "\n" });
     entries.iter().for_each(|f| {
-        print!(
-            "{} {: >longest_dir$} {: >longest_user$} {: >longest_group$} {: >longest_size$} {} {} {} {}",
-            f.0,
-            f.1,
-            f.2,
-            f.3,
-            f.4,
-            f.5,
-            f.6,
-            f.7,
-            f.8,
-            longest_dir = longest.0,
-            longest_user = longest.1,
-            longest_group = longest.2,
-            longest_size = longest.3,
-        );
-        print!("{}", if cli.end_nul { "\0" } else { "\n" })
+        println!(
+            "{: >longest_inode$} {} {: >longest_dir$} {: >longest_user$} {: >longest_group$} {: >longest_author$}{: >longest_size$} {} {} {} {}",
+            if cli.inode { format!("{}", f.inode)} else { String::from("") },
+            f.mode.to_string(),
+            f.number_of_entries,
+            f.owner,
+            f.group,
+            f.author,
+            f.size,
+            f.timestamps.month,
+            f.timestamps.date,
+            f.timestamps.time,
+            f.processed_entry,
+            longest_inode = if cli.inode { longest.longest_inode } else {0},
+            longest_dir = longest.number_of_entries,
+            longest_user = longest.longest_owner,
+            longest_group = longest.longest_group,
+            longest_size = longest.longest_size,
+            longest_author = longest.longest_author
+        )
     });
 }
 

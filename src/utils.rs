@@ -1,8 +1,16 @@
 use libc::{
-    getgrgid, getpwuid, getuid, S_IRGRP, S_IROTH, S_IRUSR, S_ISVTX, S_IWGRP, S_IWOTH, S_IWUSR, S_IXGRP, S_IXOTH, S_IXUSR
+    getuid, S_IRGRP, S_IROTH, S_IRUSR, S_ISVTX, S_IWGRP, S_IWOTH, S_IWUSR, S_IXGRP, S_IXOTH,
+    S_IXUSR,
 };
 use std::{
-    any::Any, ffi::CString, fmt::Display, fs::{Metadata, Permissions}, io::{Error, Read, Result}, os::unix::fs::{MetadataExt, PermissionsExt}, path::Path, process::exit
+    any::Any,
+    ffi::CString,
+    fmt::Display,
+    fs::{Metadata, Permissions},
+    io::{Error, Read, Result},
+    os::unix::fs::{MetadataExt, PermissionsExt},
+    path::Path,
+    process::exit,
 };
 
 pub fn log<T: Display>(verbose: bool, message: T) {
@@ -33,6 +41,46 @@ pub fn libc_wrap<T: Ord + Default>(num: T) -> Result<T> {
         return Err(Error::last_os_error());
     }
     Ok(num)
+}
+
+pub fn c_escape(contents: String, show_tabs: bool) -> String {
+    let mut result = String::new();
+    for ch in contents.chars() {
+        // Make sure it isnt a control code
+        if ch as u8 >= 32 {
+            if 127 > ch as u8 {
+                // Printable char, just push it to result string
+                result.push(ch);
+            } else if ch as u8 == 127 {
+                // Del char
+                result.push_str("^?");
+            } else {
+                // Meta characters
+                result.push_str("M-");
+                if 128 + 32 <= ch as u8 {
+                    if 128 + 127 > ch as u8 {
+                        // Meta character is out of the ascii range, we remove 128 to make it
+                        // printable
+                        result.push((ch as u8 - 128) as char)
+                    } else {
+                        result.push_str("^?");
+                    }
+                } else {
+                    result.push('^');
+                    result.push((ch as u8 - 128 + 64) as char);
+                }
+            }
+        } else if ch == '\t' && !show_tabs {
+            result.push(ch)
+        } else if ch == '\n' {
+            result.push(ch)
+        } else {
+            // If it is a control code we push ^, and add 64 to the char to its printable
+            result.push('^');
+            result.push((ch as u8 + 64) as char);
+        }
+    }
+    result
 }
 
 pub trait PathExtras {
