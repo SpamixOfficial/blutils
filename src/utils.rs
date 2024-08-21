@@ -1,6 +1,5 @@
 use libc::{
-    getuid, S_IRGRP, S_IROTH, S_IRUSR, S_ISVTX, S_IWGRP, S_IWOTH, S_IWUSR, S_IXGRP, S_IXOTH,
-    S_IXUSR,
+    getuid, S_IFIFO, S_IFSOCK, S_IRGRP, S_IROTH, S_IRUSR, S_ISVTX, S_IWGRP, S_IWOTH, S_IWUSR, S_IXGRP, S_IXOTH, S_IXUSR
 };
 use std::{
     any::Any,
@@ -86,37 +85,61 @@ pub fn c_escape(contents: String, show_tabs: bool) -> String {
 pub trait PathExtras {
     fn type_display(&self) -> Box<dyn Display>;
     fn ptype(&self) -> PathType;
-    fn str_classify(&self, when: i8) -> String;
+    fn str_classify(&self, no_exe: bool, when: i8) -> String;
+}
+
+pub fn test_mode(m: Metadata, t: u32) -> bool {
+    return (m.permissions().mode() & t) != 0
 }
 
 impl PathExtras for Path {
     fn type_display(&self) -> Box<dyn Display> {
-        if self.is_dir() {
-            Box::new("directory")
-        } else if self.is_symlink() {
-            Box::new("symlink")
-        } else {
-            Box::new("file")
+        match self.ptype() {
+            PathType::Directory => Box::new("directory"),
+            PathType::Executable => Box::new("executable"),
+            PathType::File => Box::new("file"),
+            PathType::Symlink => Box::new("link"),
+            PathType::FIFO => Box::new("fifo"),
+            PathType::Door => Box::new("door"),
+            PathType::Socket => Box::new("socket"),
         }
     }
     fn ptype(&self) -> PathType {
         if self.is_dir() {
-            PathType::Directory
-        } else if self.is_symlink() {
-            PathType::Symlink
-        } else if self.metadata().is_ok()
-            && (self.metadata().unwrap().permissions().mode() & (S_IXUSR | S_IXGRP)) != 0
-        {
-            PathType::Executable
-        } else {
-            PathType::File
+            return PathType::Directory;
         }
+        if self.is_symlink() {
+            return PathType::Symlink;
+        }
+        if self.metadata().is_ok()
+            && test_mode(self.metadata().unwrap(), S_IXUSR | S_IXGRP)
+        {
+            return PathType::Executable;
+        }
+        
+        if self.metadata().is_ok() && test_mode(self.metadata().unwrap(), S_IFIFO) {
+            return PathType::FIFO
+        }
+
+        if self.metadata().is_ok() && test_mode(self.metadata().unwrap(), S_IFSOCK) {
+            return PathType::Socket
+        }
+
+        // GNU has this, so I included it. Only seems to be necessary on solaris >2.5
+        if self.metadata().is_ok() && test_mode(self.metadata().unwrap(), 0) {
+            return PathType::Door
+        }
+
+        PathType::File
     }
-    fn str_classify(&self, when: i8) -> String {
+    fn str_classify(&self, no_exe: bool, when: i8) -> String {
         let result = match self.ptype() {
             PathType::Symlink => "@",
             PathType::Directory => "/",
-            PathType::Executable => "*",
+            PathType::Executable => if !no_exe { "*" } else { " " },
+            PathType::Door => ">",
+            PathType::FIFO => "|",
+            PathType::Socket => "=",
             _ => " ",
         }
         .to_string();
@@ -139,6 +162,9 @@ pub enum PathType {
     Directory,
     Symlink,
     Executable,
+    FIFO,
+    Socket,
+    Door,
 }
 
 pub trait MetadataPlus {

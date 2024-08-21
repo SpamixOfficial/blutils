@@ -113,9 +113,9 @@ struct Cli {
         default_value("always")
     )]
     classify: Option<When>,
-    // TODO
-    #[arg(long = "file-type", help = "Likewise, except do not append '*'")]
-    file_type: bool,
+    // Done
+    #[arg(long = "file-type", help = "Likewise, except do not append '*'", num_args=0..=1, default_missing_value("always"))]
+    file_type: Option<When>,
     // TODO
     #[arg(
         long = "format",
@@ -533,6 +533,10 @@ pub fn main() {
         cli.no_group = true;
     }
 
+    if cli.file_type.is_some() {
+        cli.classify = cli.file_type
+    }
+
     if cli.no_sort_color {
         cli.all = true;
         cli.no_sort = true;
@@ -796,7 +800,10 @@ fn normal_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize, usize)>>, long
                     entry.0.clone()
                         + entry
                             .1
-                            .str_classify(cli.classify.unwrap_or_default().to_i8())
+                            .str_classify(
+                                cli.file_type.is_some(),
+                                cli.classify.unwrap_or_default().to_i8()
+                            )
                             .as_str(),
                     width = longest_entry + 1 + (entry.0.len() - entry.2)
                 );
@@ -848,7 +855,10 @@ fn normal_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize, usize)>>, long
                     entry.0,
                     entry
                         .1
-                        .str_classify(cli.classify.unwrap_or_default().to_i8())
+                        .str_classify(
+                            cli.file_type.is_some(),
+                            cli.classify.unwrap_or_default().to_i8()
+                        )
                         .as_str()
                 );
             }
@@ -941,7 +951,10 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize, usize)>>) {
                 processed_entry: style.paint(entry.0.clone()).to_string()
                     + entry
                         .1
-                        .str_classify(cli.classify.unwrap_or_default().to_i8())
+                        .str_classify(
+                            cli.file_type.is_some(),
+                            cli.classify.unwrap_or_default().to_i8(),
+                        )
                         .as_str(),
                 metadata_entry,
                 inode,
