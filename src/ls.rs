@@ -1,6 +1,12 @@
 use nix::sys::stat::stat;
 use std::{
-    env::args, ffi::OsString, fs::Metadata, os::unix::fs::MetadataExt, path::PathBuf, process::exit,
+    env::args,
+    ffi::OsString,
+    fs::Metadata,
+    os::unix::fs::MetadataExt,
+    path::{self, Path, PathBuf},
+    process::exit,
+    usize,
 };
 
 use crate::utils::{c_escape, log, ModeWrapper, PathExtras, PathType, PermissionsPlus};
@@ -99,7 +105,7 @@ struct Cli {
     // Done
     #[arg(short = 'f', help = "Do not sort, enable -aU, disable -ls --color")]
     no_sort_color: bool,
-    // TODO
+    // Done
     #[arg(
         short = 'F',
         long = "classify",
@@ -415,7 +421,7 @@ impl When {
         match self {
             When::Always => 0,
             When::Auto => 1,
-            When::Never => 2
+            When::Never => 2,
         }
     }
 }
@@ -473,6 +479,7 @@ enum TimeWord {
 
 #[derive(Debug, Clone)]
 struct EntryItem {
+    parent: PathBuf,
     mode: ModeWrapper,
     number_of_entries: usize,
     owner: String,
@@ -527,16 +534,18 @@ pub fn main() {
     }
 
     if cli.no_sort_color {
-        dbg!("no_sort_color");
         cli.all = true;
         cli.no_sort = true;
         cli.list = false;
         cli.size_blocks = false;
         cli.color = Some(When::Never);
-        dbg!(&cli);
     }
 
     for file in &cli.files {
+        if !file.exists() {
+            eprintln!("No such file or directory: {}", file.display());
+            continue;
+        }
         ls(&cli, file);
     }
 }
@@ -548,7 +557,7 @@ fn ls(cli: &Cli, p: &PathBuf) {
     }
 
     // First we get and collect all the entries into a vector of strings
-    let entries: Vec<(String, PathBuf)>;
+    let entries: Vec<(String, PathBuf, usize)>;
     if p.is_dir() && !cli.directory {
         entries = dir
             .into_iter()
@@ -562,13 +571,14 @@ fn ls(cli: &Cli, p: &PathBuf) {
                         .to_str()
                         .unwrap()
                         .to_string(),
-                    e.into_path(),
+                    e.clone().into_path(),
+                    e.depth(),
                 )
             })
             .collect();
     } else {
-        // Manually create a one item vector if not a dir
-        entries = vec![(p.to_str().unwrap().to_string(), p.to_owned())]
+        // Manually create an one item vector if not a dir
+        entries = vec![(p.to_str().unwrap().to_string(), p.to_owned(), 0)]
     }
     // Create the lines variable we will use later
     // Also get longest entry because the processing introduces asci control characters in most
@@ -576,25 +586,25 @@ fn ls(cli: &Cli, p: &PathBuf) {
     let (lines, longest_entry) = treat_entries(cli, entries);
 
     // Finally trigger the right function
+    //if !cli.recursive {
     if !cli.list {
-        if !cli.recursive {
-            normal_list(cli, lines, longest_entry);
-        }
+        normal_list(cli, lines, longest_entry);
     } else {
-        if !cli.recursive {
-            list_list(cli, lines);
-        }
+        list_list(cli, lines)
     }
+    /*} else {
+        recursive_list(cli, lines, longest_entry);
+    }*/
 }
 
 fn treat_entries(
     cli: &Cli,
-    entries_list: Vec<(String, PathBuf)>,
-) -> (Vec<Vec<(String, PathBuf, usize)>>, usize) {
+    entries_list: Vec<(String, PathBuf, usize)>,
+) -> (Vec<Vec<(String, PathBuf, usize, usize)>>, usize) {
     let term_size = termsize::get();
-    let mut entries: Vec<(String, PathBuf, usize)> = entries_list
+    let mut entries: Vec<(String, PathBuf, usize, usize)> = entries_list
         .into_iter()
-        .map(|f| (f.0.clone(), f.1, f.0.len()))
+        .map(|f| (f.0.clone(), f.1, f.0.len(), f.2))
         .collect();
 
     // Here we remove and add items as needed
@@ -613,7 +623,7 @@ fn treat_entries(
                 exit(1);
             }
         };
-        dbg!(&re);
+
         entries.retain(|x| re.is_match(x.0.as_str()) != true);
     }
 
@@ -660,16 +670,21 @@ fn treat_entries(
             .filter_map(|f| if !f.0.starts_with(".") { Some(f) } else { None })
             .collect();
     } else if cli.all {
-        entries.insert(0, (String::from("."), PathBuf::from("./"), 1));
-        entries.insert(1, (String::from(".."), PathBuf::from("../"), 2));
+        entries.insert(0, (String::from("."), PathBuf::from("./"), 1, 1));
+        entries.insert(1, (String::from(".."), PathBuf::from("../"), 1, 2));
     }
 
     // C style escaping. We put this before the color so it doesnt start escaping the color codes!
     if cli.print_escapes {
         entries = entries
             .into_iter()
-            .map(|entry| (c_escape(entry.0, false), entry.1, entry.2))
+            .map(|entry| (c_escape(entry.0, false), entry.1, entry.2, entry.3))
             .collect();
+    }
+
+    // Sort so depth makes sense in case of recursive
+    if cli.recursive {
+        entries.sort_by(|a, b| a.3.cmp(&b.3));
     }
 
     // If no terminal size we can assume it was called either as a background process or some other
@@ -694,7 +709,7 @@ fn treat_entries(
                     PathType::Symlink => Style::new().bold().fg(Colour::Cyan),
                     _ => Style::new(),
                 };
-                (style.paint(entry.0).to_string(), entry.1, entry.2)
+                (style.paint(entry.0).to_string(), entry.1, entry.2, entry.3)
             })
             .collect();
     }
@@ -724,7 +739,7 @@ fn treat_entries(
         entries
             .chunks(entry_per_line)
             .map(|s| s.into())
-            .collect::<Vec<Vec<(String, PathBuf, usize)>>>(),
+            .collect::<Vec<Vec<(String, PathBuf, usize, usize)>>>(),
         longest_entry,
     )
     /*} else {
@@ -742,7 +757,15 @@ fn treat_entries(
     }*/
 }
 
-fn normal_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>, longest_entry: usize) {
+fn recursive_list(
+    cli: &Cli,
+    lines: Vec<Vec<(String, PathBuf, usize, usize)>>,
+    longest_entry: usize,
+) {
+}
+
+fn normal_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize, usize)>>, longest_entry: usize) {
+    let mut current_dir = PathBuf::new();
     if cli.one_line {
         lines.iter().for_each(|entries| {
             for entry in entries {
@@ -755,6 +778,13 @@ fn normal_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>, longest_ent
     if lines.len() > 2 {
         for line in lines {
             for entry in line {
+                if cli.recursive && entry.1.parent() != Some(current_dir.as_path()) {
+                    println!(
+                        "\n{}:",
+                        entry.1.parent().unwrap_or(&path::Path::new("./")).display()
+                    );
+                    current_dir = entry.1.parent().unwrap().to_path_buf();
+                }
                 /*let style = match entry.1.as_path().ptype() {
                     PathType::Directory => Style::new().bold().fg(Colour::Blue),
                     PathType::Executable => Style::new().bold().fg(Colour::Green),
@@ -763,7 +793,11 @@ fn normal_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>, longest_ent
                 };*/
                 let entry_format_string = format!(
                     "{: <width$}",
-                    entry.0.clone() + entry.1.str_classify(cli.classify.unwrap_or_default().to_i8()).as_str(),
+                    entry.0.clone()
+                        + entry
+                            .1
+                            .str_classify(cli.classify.unwrap_or_default().to_i8())
+                            .as_str(),
                     width = longest_entry + 1 + (entry.0.len() - entry.2)
                 );
                 print!("{}", entry_format_string);
@@ -802,10 +836,20 @@ fn normal_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>, longest_ent
     } else {
         for line in lines {
             for entry in line {
+                if cli.recursive && entry.1.parent() != Some(current_dir.as_path()) {
+                    println!(
+                        "\n{}:",
+                        entry.1.parent().unwrap_or(&path::Path::new("./")).display()
+                    );
+                    current_dir = entry.1.parent().unwrap().to_path_buf();
+                }
                 print!(
                     "{}{}  ",
                     entry.0,
-                    entry.1.str_classify(cli.classify.unwrap_or_default().to_i8()).as_str()
+                    entry
+                        .1
+                        .str_classify(cli.classify.unwrap_or_default().to_i8())
+                        .as_str()
                 );
             }
             print!("{}", if cli.end_nul { "\0" } else { "\n" })
@@ -813,8 +857,9 @@ fn normal_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>, longest_ent
     }
 }
 
-fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>) {
+fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize, usize)>>) {
     let mut entries: Vec<EntryItem> = vec![];
+    let mut current_dir = PathBuf::new();
     for line in lines {
         for entry in line {
             let style = match entry.1.ptype() {
@@ -861,6 +906,8 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>) {
                 DisplayTime::new(file_timestamp.modified)
             };
 
+            let parent = entry.1.parent().unwrap_or(Path::new("./")).to_path_buf();
+
             let inode = if cli.inode {
                 match stat(&entry.1) {
                     Ok(x) => x.st_ino,
@@ -884,6 +931,7 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>) {
 
             // Finally create the format string
             let entry_item = EntryItem {
+                parent,
                 mode: perms,
                 number_of_entries: dir_entries,
                 owner: owner.to_str().unwrap().to_string(),
@@ -891,7 +939,10 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>) {
                 size: metadata_entry.size() as usize / block_size,
                 timestamps: timestamp,
                 processed_entry: style.paint(entry.0.clone()).to_string()
-                    + entry.1.str_classify(cli.classify.unwrap_or_default().to_i8()).as_str(),
+                    + entry
+                        .1
+                        .str_classify(cli.classify.unwrap_or_default().to_i8())
+                        .as_str(),
                 metadata_entry,
                 inode,
                 // This is hilarious, but the author is just the owner. Why does this option even
@@ -949,6 +1000,17 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>) {
     print!("total {}", entries.len());
     print!("{}", if cli.end_nul { "\0" } else { "\n" });
     entries.iter().for_each(|f| {
+        // Here we check if the parent matches the current parent, and if not we can safely assume
+        // that we have changed dir and should print a new "directory entry summary line"
+        //
+        // Only for recursive
+        if cli.recursive && f.parent != current_dir {
+                println!(
+                    "\n{}:",
+                    f.parent.display()
+                );
+                current_dir = f.parent.clone();
+        };
         println!(
             "{: >longest_inode$} {} {: >longest_dir$} {: >longest_user$} {: >longest_group$} {: >longest_author$}{: >longest_size$} {} {} {} {}",
             if cli.inode { format!("{}", f.inode)} else { String::from("") },
