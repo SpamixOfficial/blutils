@@ -58,7 +58,7 @@ struct Cli {
     print_escapes: bool,
     // Done
     #[arg(
-        long = "block_size",
+        long = "block-size",
         help = "With -l, scale sizes by SIZE when printing them; e.g., '--block-size=M'; see SIZE format below"
     )]
     block_size: Option<BlockSize>,
@@ -364,6 +364,7 @@ struct Cli {
 }
 
 #[derive(clap::ValueEnum, Clone, Debug, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[clap(rename_all = "uppercase")]
 #[repr(i32)]
 enum BlockSize {
     /// KiB (1024)
