@@ -40,7 +40,7 @@ struct Cli {
     )]
     almost_all: bool,
 
-    //TODO
+    // Done
     #[arg(long = "author", help = "With -l, print the author of each file")]
     author: bool,
     // Done
@@ -50,7 +50,7 @@ struct Cli {
         help = "Print C-style escapes for nongraphic characters"
     )]
     print_escapes: bool,
-    // TODO
+    // Done
     #[arg(
         long = "block_size",
         help = "With -l, scale sizes by SIZE when printing them; e.g., '--block-size=M'; see SIZE format below"
@@ -103,7 +103,8 @@ struct Cli {
     #[arg(
         short = 'F',
         long = "classify",
-        help = "Append indicator (one of */=>@|) to entries WHEN"
+        help = "Append indicator (one of */=>@|) to entries WHEN",
+        default_value("always")
     )]
     classify: Option<When>,
     // TODO
@@ -357,47 +358,48 @@ struct Cli {
 }
 
 #[derive(clap::ValueEnum, Clone, Debug, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[repr(i32)]
 enum BlockSize {
     /// KiB (1024)
-    K,
+    K = 1024,
     /// MiB (1024^2)
-    M,
+    M = 1024 ^ 2,
     /// GiB (1024^3)
-    G,
+    G = 1024 ^ 3,
     /// TiB (1024^4)
-    T,
+    T = 1024 ^ 4,
     /// PiB (1024^5)
-    P,
+    P = 1024 ^ 5,
     /// EiB (1024^6)
-    E,
+    E = 1024 ^ 6,
     /// ZiB (1024^7)
-    Z,
+    Z = 1024 ^ 7,
     /// YiB (1024^8)
-    Y,
+    Y = 1024 ^ 8,
     /// RiB (1024^9)
-    R,
+    R = 1024 ^ 9,
     /// QiB (1024^10)
-    Q,
+    Q = 1024 ^ 10,
     /// KB (1000)
-    KB,
+    KB = 1000,
     /// MB (1000^2)
-    MB,
+    MB = 1000 ^ 2,
     /// GB (1000^3)
-    GB,
+    GB = 1000 ^ 3,
     /// TB (1000^4)
-    TB,
+    TB = 1000 ^ 4,
     /// PB (1000^5)
-    PB,
+    PB = 1000 ^ 5,
     /// EB (1000^6)
-    EB,
+    EB = 1000 ^ 6,
     /// ZB (1000^7)
-    ZB,
+    ZB = 1000 ^ 7,
     /// YB (1000^8)
-    YB,
+    YB = 1000 ^ 8,
     /// RB (1000^9)
-    RB,
+    RB = 1000 ^ 9,
     /// QB (1000^10)
-    QB,
+    QB = 1000 ^ 10,
 }
 
 #[derive(clap::ValueEnum, Clone, Debug, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
@@ -406,6 +408,16 @@ enum When {
     Always,
     Auto,
     Never,
+}
+
+impl When {
+    fn to_i8(&self) -> i8 {
+        match self {
+            When::Always => 0,
+            When::Auto => 1,
+            When::Never => 2
+        }
+    }
 }
 
 #[derive(clap::ValueEnum, Clone, Debug, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -652,7 +664,14 @@ fn treat_entries(
         entries.insert(1, (String::from(".."), PathBuf::from("../"), 2));
     }
 
-    // We start splitting up here
+    // C style escaping. We put this before the color so it doesnt start escaping the color codes!
+    if cli.print_escapes {
+        entries = entries
+            .into_iter()
+            .map(|entry| (c_escape(entry.0, false), entry.1, entry.2))
+            .collect();
+    }
+
     // If no terminal size we can assume it was called either as a background process or some other
     // non-graphical process
     if term_size.is_none() {
@@ -669,7 +688,7 @@ fn treat_entries(
         entries = entries
             .into_iter()
             .map(|entry| {
-                let style = match entry.1.as_path().ptype() {
+                let style = match entry.1.ptype() {
                     PathType::Directory => Style::new().bold().fg(Colour::Blue),
                     PathType::Executable => Style::new().bold().fg(Colour::Green),
                     PathType::Symlink => Style::new().bold().fg(Colour::Cyan),
@@ -744,13 +763,7 @@ fn normal_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>, longest_ent
                 };*/
                 let entry_format_string = format!(
                     "{: <width$}",
-                    entry.0.clone()
-                        + match entry.1.as_path().ptype() {
-                            PathType::Symlink => "@",
-                            PathType::Directory => "/",
-                            PathType::Executable => "*",
-                            _ => " ",
-                        },
+                    entry.0.clone() + entry.1.str_classify(cli.classify.unwrap_or_default().to_i8()).as_str(),
                     width = longest_entry + 1 + (entry.0.len() - entry.2)
                 );
                 print!("{}", entry_format_string);
@@ -792,12 +805,7 @@ fn normal_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>, longest_ent
                 print!(
                     "{}{}  ",
                     entry.0,
-                    match entry.1.as_path().ptype() {
-                        PathType::Symlink => "@",
-                        PathType::Directory => "/",
-                        PathType::Executable => "*",
-                        _ => "",
-                    }
+                    entry.1.str_classify(cli.classify.unwrap_or_default().to_i8()).as_str()
                 );
             }
             print!("{}", if cli.end_nul { "\0" } else { "\n" })
@@ -809,7 +817,7 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>) {
     let mut entries: Vec<EntryItem> = vec![];
     for line in lines {
         for entry in line {
-            let style = match entry.1.as_path().ptype() {
+            let style = match entry.1.ptype() {
                 PathType::Directory => Style::new().bold().fg(Colour::Blue),
                 PathType::Executable => Style::new().bold().fg(Colour::Green),
                 PathType::Symlink => Style::new().bold().fg(Colour::Cyan),
@@ -868,21 +876,22 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize)>>) {
                 0
             };
 
+            let block_size = (if let Some(bs) = cli.block_size {
+                bs as i32
+            } else {
+                1
+            }) as usize;
+
             // Finally create the format string
             let entry_item = EntryItem {
                 mode: perms,
                 number_of_entries: dir_entries,
                 owner: owner.to_str().unwrap().to_string(),
                 group: group.to_str().unwrap().to_string(),
-                size: metadata_entry.size() as usize,
+                size: metadata_entry.size() as usize / block_size,
                 timestamps: timestamp,
                 processed_entry: style.paint(entry.0.clone()).to_string()
-                    + match entry.1.as_path().ptype() {
-                        PathType::Symlink => "@",
-                        PathType::Directory => "/",
-                        PathType::Executable => "*",
-                        _ => "",
-                    },
+                    + entry.1.str_classify(cli.classify.unwrap_or_default().to_i8()).as_str(),
                 metadata_entry,
                 inode,
                 // This is hilarious, but the author is just the owner. Why does this option even

@@ -86,6 +86,7 @@ pub fn c_escape(contents: String, show_tabs: bool) -> String {
 pub trait PathExtras {
     fn type_display(&self) -> Box<dyn Display>;
     fn ptype(&self) -> PathType;
+    fn str_classify(&self, when: i8) -> String;
 }
 
 impl PathExtras for Path {
@@ -109,6 +110,26 @@ impl PathExtras for Path {
             PathType::Executable
         } else {
             PathType::File
+        }
+    }
+    fn str_classify(&self, when: i8) -> String {
+        let result = match self.ptype() {
+            PathType::Symlink => "@",
+            PathType::Directory => "/",
+            PathType::Executable => "*",
+            _ => " ",
+        }
+        .to_string();
+        match when {
+            0 => result,
+            1 => {
+                if termsize::get().is_some() {
+                    result
+                } else {
+                    " ".to_string()
+                }
+            }
+            _ => " ".to_string(),
         }
     }
 }
