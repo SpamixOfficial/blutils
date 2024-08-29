@@ -52,6 +52,10 @@ cargo run -- chmod
 
 **TREAT THESE COMMANDS AS YOU WOULD TREAT YOUR NORMAL COMMANDS!**
 
+# Conributing
+
+[Click here for the guide](/CONTRIBUTING.md)
+
 # Tracker
 
 [Click here for the tracker file](/TRACKER.md)
