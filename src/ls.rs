@@ -1,7 +1,9 @@
+use core::fmt;
 use nix::sys::stat::stat;
 use std::{
     env::args,
     ffi::OsString,
+    fmt::Debug,
     fs::Metadata,
     os::unix::fs::MetadataExt,
     path::{self, Path, PathBuf},
@@ -18,7 +20,7 @@ use clap::Parser;
 use regex::Regex;
 use walkdir::WalkDir;
 
-const PROGRM: &str = "ls";
+const PROGRAM: &str = "ls";
 
 #[derive(Parser, Debug, Clone)]
 #[command(
@@ -365,40 +367,45 @@ struct Cli {
 
 #[derive(clap::ValueEnum, Clone, Debug, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[clap(rename_all = "uppercase")]
-#[repr(i32)]
+#[repr(i64)]
 enum BlockSize {
     /// KiB (1024)
     K = 1024,
     /// MiB (1024^2)
-    M = 1024 ^ 2,
+    M = i64::pow(1024, 2),
     /// GiB (1024^3)
-    G = 1024 ^ 3,
+    G = i64::pow(1024, 3),
     /// TiB (1024^4)
-    T = 1024 ^ 4,
+    T = i64::pow(1024, 4),
     /// PiB (1024^5)
-    P = 1024 ^ 5,
+    P = i64::pow(1024, 5),
     /// EiB (1024^6)
-    E = 1024 ^ 6,
+    E = i64::pow(1024, 6),
+
+    // These might be implemented in the future if a need is necessary. At the moment these numbers
+    // are way too big!
     /// ZiB (1024^7)
-    Z = 1024 ^ 7,
+    /*Z = i64::pow(1024, 7),
     /// YiB (1024^8)
-    Y = 1024 ^ 8,
+    Y = i64::pow(1024, 8),
     /// RiB (1024^9)
-    R = 1024 ^ 9,
+    R = i64::pow(1024, 9),
     /// QiB (1024^10)
-    Q = 1024 ^ 10,
+    Q = i64::pow(1024, 10),*/
     /// KB (1000)
     KB = 1000,
     /// MB (1000^2)
-    MB = 1000 ^ 2,
+    MB = i64::pow(1000, 2),
     /// GB (1000^3)
-    GB = 1000 ^ 3,
+    GB = i64::pow(1000, 3),
     /// TB (1000^4)
-    TB = 1000 ^ 4,
+    TB = i64::pow(1000, 4),
     /// PB (1000^5)
-    PB = 1000 ^ 5,
+    PB = i64::pow(1000, 5),
     /// EB (1000^6)
-    EB = 1000 ^ 6,
+    EB = i64::pow(1000, 6),
+    /*
+    // Same thing here
     /// ZB (1000^7)
     ZB = 1000 ^ 7,
     /// YB (1000^8)
@@ -407,6 +414,7 @@ enum BlockSize {
     RB = 1000 ^ 9,
     /// QB (1000^10)
     QB = 1000 ^ 10,
+    */
 }
 
 #[derive(clap::ValueEnum, Clone, Debug, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
@@ -486,6 +494,7 @@ struct EntryItem {
     owner: String,
     group: String,
     size: usize,
+    size_char: String,
     timestamps: DisplayTime,
     processed_entry: String,
     metadata_entry: Metadata,
@@ -934,11 +943,14 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize, usize)>>) {
                 0
             };
 
-            let block_size = (if let Some(bs) = cli.block_size {
-                bs as i32
+            let (block_size, size_char) = if let Some(bs) = cli.block_size {
+                dbg!(&bs, bs as i64);
+                (bs as i64, format!("{:?}", &bs))
             } else {
-                1
-            }) as usize;
+                (1, String::from(" "))
+            };
+
+            dbg!(block_size, metadata_entry.size());
 
             // Finally create the format string
             let entry_item = EntryItem {
@@ -947,7 +959,8 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize, usize)>>) {
                 number_of_entries: dir_entries,
                 owner: owner.to_str().unwrap().to_string(),
                 group: group.to_str().unwrap().to_string(),
-                size: metadata_entry.size() as usize / block_size,
+                size: metadata_entry.size() as usize / block_size as usize,
+                size_char,
                 timestamps: timestamp,
                 processed_entry: style.paint(entry.0.clone()).to_string()
                     + entry
@@ -1026,7 +1039,7 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize, usize)>>) {
                 current_dir = f.parent.clone();
         };
         println!(
-            "{: >longest_inode$} {} {: >longest_dir$} {: >longest_user$} {: >longest_group$} {: >longest_author$}{: >longest_size$} {} {} {} {}",
+            "{: >longest_inode$} {} {: >longest_dir$} {: >longest_user$} {: >longest_group$} {: >longest_author$}{: >longest_size$}{} {} {} {} {}",
             if cli.inode { format!("{}", f.inode)} else { String::from("") },
             f.mode.to_string(),
             f.number_of_entries,
@@ -1034,6 +1047,7 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize, usize)>>) {
             f.group,
             f.author,
             f.size,
+            f.size_char,
             f.timestamps.month,
             f.timestamps.date,
             f.timestamps.time,
