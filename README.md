@@ -46,6 +46,8 @@ cargo run -- rm
 cargo run -- chown
 # chmod
 cargo run -- chmod
+# du
+cargo run -- du
 ```
 
 \*NOTE: All of these commands do what they are supposed to do. This can lead to **_destructive_** actions.\*

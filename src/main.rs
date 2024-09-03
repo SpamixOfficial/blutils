@@ -5,16 +5,17 @@ const BUILD: &str = include_str!("metadata/build");
 use std::{env::args, process::exit};
 // All modules
 mod cat;
+mod chmod;
+mod chown;
+mod cp;
+mod du;
+mod ln;
 mod ls;
 mod mkdir;
+mod mv;
+mod rm;
 mod rmdir;
 mod utils;
-mod mv;
-mod cp;
-mod rm;
-mod ln;
-mod chown;
-mod chmod;
 // End of modules
 
 fn main() {
@@ -22,7 +23,10 @@ fn main() {
     let mut command = arguments[0].split("/").last().unwrap();
     if arguments.len() < 2 && command == "blutils" {
         help();
-    } else if arguments.len() >= 2 && command == "blutils" && (arguments[1] == "--list" || arguments[1] == "-l")  {
+    } else if arguments.len() >= 2
+        && command == "blutils"
+        && (arguments[1] == "--list" || arguments[1] == "-l")
+    {
         list();
     } else if command == "blutils" {
         command = arguments[1].as_str();
@@ -38,6 +42,7 @@ fn main() {
         "ln" => ln::main(),
         "chown" => chown::main(),
         "chmod" => chmod::main(),
+        "du" => du::main(),
         _ => help(),
     }
 }
