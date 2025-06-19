@@ -1,19 +1,17 @@
 use libc::{
-    getgrgid, getpwuid, getuid, S_IFIFO, S_IFMT, S_IFSOCK, S_IRGRP, S_IROTH, S_IRUSR, S_ISVTX,
-    S_IWGRP, S_IWOTH, S_IWUSR, S_IXGRP, S_IXOTH, S_IXUSR,
+    getgrgid, getpwuid, getuid, stat, S_IFIFO, S_IFMT, S_IFSOCK, S_IRGRP, S_IROTH, S_IRUSR,
+    S_ISVTX, S_IWGRP, S_IWOTH, S_IWUSR, S_IXGRP, S_IXOTH, S_IXUSR,
 };
 use std::{
     any::Any,
-    ffi::{c_char, CStr},
-    fmt::{Display, Pointer},
+    ffi::{c_char, CStr, CString},
+    fmt::Display,
     fs::{Metadata, Permissions},
     io::{Error, Read, Result},
-    os::{
-        linux::fs::MetadataExt as lmext,
-        unix::fs::{MetadataExt, PermissionsExt},
-    },
-    path::Path,
+    os::{linux::fs::MetadataExt as lmext, unix::fs::PermissionsExt},
+    path::{Path, PathBuf},
     process::exit,
+    str::FromStr,
 };
 
 pub fn log<T: Display>(verbose: bool, message: T) {
@@ -48,6 +46,31 @@ pub fn libc_wrap<T: Ord + Default>(num: T) -> Result<T> {
         return Err(Error::last_os_error());
     }
     Ok(num)
+}
+
+#[derive(Default)]
+pub struct Stat {
+    pub inode: u64,
+    pub blk: i64,
+}
+
+pub fn get_stat(input: &PathBuf, verbose: bool) -> Result<Stat> {
+    unsafe {
+        let mut stat_struct: stat = std::mem::zeroed();
+        let path = CString::from_str(input.to_str().unwrap()).unwrap();
+        let result = libc_wrap(stat(path.as_ptr(), &mut stat_struct));
+        if let Err(e) = result {
+            log(
+                verbose,
+                format!("Stat failed for {}: {}", &input.display(), e.to_string()),
+            );
+            return Err(e)
+        };
+        Ok(Stat {
+            inode: stat_struct.st_ino,
+            blk: stat_struct.st_blocks,
+        })
+    }
 }
 
 pub fn c_escape(contents: String, show_tabs: bool) -> String {

@@ -5,7 +5,7 @@ use std::{
 
 use libc::stat;
 
-use crate::utils::{c_escape, libc_wrap, log, MetadataPlus, ModeWrapper, PathExtras, PathType, PermissionsPlus};
+use crate::utils::{c_escape, get_stat, libc_wrap, log, MetadataPlus, ModeWrapper, PathExtras, PathType, PermissionsPlus, Stat};
 
 use crate::ansi_colour::{Colour, Style};
 use chrono::{DateTime, Local, TimeZone};
@@ -74,10 +74,7 @@ struct Cli {
         help = "With -lt: sort by, and show, ctime (time of last change of file status information); with -l: show ctime and sort by name; otherwise: sort by ctime, newest first"
     )]
     sort_access_ctime: bool,
-    // I could simply not get this to work, so now lines is the default. Also it looks better (and
-    // makes wayyyy more sense!)
-    //#[arg(short = 'C', help = "List entries by columns", default_value("true"))]
-    //column: bool,
+    // Done
     #[arg(
         long = "color",
         help = "Color the output WHEN",
@@ -91,13 +88,6 @@ struct Cli {
         help = "List directories themselves, not their contents"
     )]
     directory: bool,
-    // Not planned... TODO
-    /*#[arg(
-        short = 'D',
-        long = "dired",
-        help = "Generate output designed for Emacs' dired mode"
-    )]
-    dired: bool,*/
     // Done
     #[arg(short = 'f', help = "Do not sort, enable -aU, disable -ls --color")]
     no_sort_color: bool,
@@ -112,15 +102,6 @@ struct Cli {
     // Done
     #[arg(long = "file-type", help = "Likewise, except do not append '*'", num_args=0..=1, default_missing_value("always"))]
     file_type: Option<When>,
-    // TODO
-    #[arg(
-        long = "format",
-        help = "Across -x, commas -m, horizontal -x, long -l, single-column -1, verbose -l, vertical -C"
-    )]
-    format: Option<FormatWord>,
-    // Not planned, might happen in future, TODO
-    /*#[arg(long = "full-time", help = "Like -l  --time-style=full-iso")]
-    alias_list_time_full_iso: bool,*/
     // Done
     #[arg(short = 'g', help = "Like -l but does not list owner")]
     list_no_owner: bool,
@@ -202,7 +183,7 @@ struct Cli {
         help = "Default to 1024-byte blocks for file system usage; used only with -s and directory totals"
     )]
     kibibytes: bool,
-    // TODO
+    // Done
     #[arg(short = 'l', help = "Use a long listing format")]
     list: bool,
     //TODO
@@ -212,19 +193,6 @@ struct Cli {
         help = "Use dereferenced symbolic link information in result instead of symbolic link itself"
     )]
     dereference: bool,
-    // TODO
-    #[arg(
-        short = 'm',
-        help = "Fill width with a comma separated list of entries"
-    )]
-    fill_comma: bool,
-    // TODO
-    #[arg(
-        short = 'n',
-        long = "numeric-uid-grid",
-        help = "Like l, but list numeric user and group IDs"
-    )]
-    numeric_list: bool,
     // Done
     #[arg(
         short = 'N',
@@ -238,9 +206,6 @@ struct Cli {
         help = "Like -l but do not list group information - same as -lG"
     )]
     no_group_list: bool,
-    // TODO
-    #[arg(short = 'p', help = "Append / to directories")]
-    slash: bool,
     // TODO
     #[arg(
         short = 'q',
@@ -256,20 +221,10 @@ struct Cli {
     show_control_chars: bool,
     // TODO
     #[arg(
-        short = 'Q',
-        long = "quote-name",
-        help = "Enclose entry names in double quotes"
-    )]
-    quote_name: bool,
-    // TODO
-    #[arg(
         long = "quoting-style",
         help = "Use  quoting  style WORD for entry names: literal, locale, shell, shell-always, shell-escape, shell-escape-always, c, escape (overrides QUOTING_STYLE environment variable)"
     )]
     quoting_style: Option<QuotingWord>,
-    // TODO
-    #[arg(short = 'r', long = "reverse", help = "Reverse order while sorting")]
-    reverse: bool,
     // TODO
     #[arg(
         short = 'R',
@@ -300,13 +255,6 @@ struct Cli {
         value_name("WORD")
     )]
     time_display_sort: Option<TimeWord>,
-    // Not planned, might happen in the future... TODO
-    /*#[arg(
-        long = "time-style",
-        help = "Time/Date format of -l; TIME_STYLE syntax: {TODO}",
-        value_name("TIME_STYLE")
-    )]
-    time_style: Option<String>,*/
     // done
     #[arg(short = 't', help = "Sort by time")]
     time_sort: bool,
@@ -328,9 +276,6 @@ struct Cli {
     #[arg(short = 'U', help = "Do not sort; list entries in directory order")]
     no_sort: bool,
     // TODO
-    #[arg(short = 'v', help = "Natural sort of (version) numbers within text")]
-    sort_version: bool,
-    // TODO
     #[arg(
         short = 'w',
         long = "width",
@@ -338,12 +283,6 @@ struct Cli {
         value_name("COLS")
     )]
     output_width: Option<u32>,
-    // Not needed as its the default
-    //#[arg(short = 'x', help = "List entries by lines instead of columns")]
-    //list_lines: bool,
-    // TODO
-    #[arg(short = 'X', help = "Sort alphabetically by entry extension")]
-    sort_extension: bool,
     // Done
     #[arg(long = "zero", help = "End each output line with NUL, not newline")]
     end_nul: bool,
@@ -357,6 +296,21 @@ struct Cli {
     verbose: bool,
     #[clap(long, action = clap::ArgAction::HelpLong)]
     help: Option<bool>,
+
+    /*
+    -D
+    --format
+    --full-time
+    -m
+    -n
+    -p
+    -Q
+    -C
+    -r
+    --time-style
+    -v
+    -X
+     */
 }
 
 #[derive(clap::ValueEnum, Clone, Debug, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -482,6 +436,7 @@ enum TimeWord {
 
 #[derive(Debug, Clone)]
 struct EntryItem {
+    blk: i64,
     parent: PathBuf,
     mode: ModeWrapper,
     number_of_entries: usize,
@@ -498,6 +453,7 @@ struct EntryItem {
 
 #[derive(Debug, Clone)]
 struct Longest {
+    longest_block: usize,
     number_of_entries: usize,
     longest_owner: usize,
     longest_group: usize,
@@ -923,24 +879,9 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize, usize)>>) {
 
             let parent = entry.1.parent().unwrap_or(Path::new("./")).to_path_buf();
 
-            let inode = if cli.inode {
-                unsafe {
-                    let mut stat_struct: stat = std::mem::zeroed();
-                    let path = CString::from_str(entry.1.to_str().unwrap()).unwrap();
-                    let result = libc_wrap(stat(path.as_ptr(), &mut stat_struct));
-                    if let Err(e) = result {
-                        log(
-                            cli.verbose,
-                            format!("Inode failed for {}: {}", &entry.1.display(), e.to_string()),
-                        );
-                        0
-                    } else {
-                        stat_struct.st_ino
-                    }
-                }
-            } else {
-                0
-            };
+            let stat = get_stat(&entry.1, cli.verbose).unwrap_or(Stat::default());
+            let inode = if cli.inode {stat.inode} else {0};
+            let blk = if cli.size_blocks {stat.blk} else {0};
 
             let (block_size, size_char) = if let Some(bs) = cli.block_size {
                 dbg!(&bs, bs as i64);
@@ -953,6 +894,7 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize, usize)>>) {
 
             // Finally create the format string
             let entry_item = EntryItem {
+                blk,
                 parent,
                 mode: perms,
                 number_of_entries: dir_entries,
@@ -985,6 +927,7 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize, usize)>>) {
 
     // All "longest-variables"
     let longest = Longest {
+        longest_block: entries.clone().iter().map(|x|x.blk.to_string().chars().count()).max().unwrap_or(0),
         number_of_entries: entries
             .clone()
             .iter()
@@ -1038,7 +981,8 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize, usize)>>) {
                 current_dir = f.parent.clone();
         };
         println!(
-            "{: >longest_inode$} {} {: >longest_dir$} {: >longest_user$} {: >longest_group$} {: >longest_author$}{: >longest_size$}{} {} {} {} {}",
+            "{: >longest_blk$}{: >longest_inode$} {} {: >longest_dir$} {: >longest_user$} {: >longest_group$} {: >longest_author$}{: >longest_size$}{} {} {} {} {}",
+            if cli.size_blocks {format!("{}", f.blk)} else {String::from("")},
             if cli.inode { format!("{}", f.inode)} else { String::from("") },
             f.mode.to_string(),
             f.number_of_entries,
@@ -1051,6 +995,7 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize, usize)>>) {
             f.timestamps.date,
             f.timestamps.time,
             f.processed_entry,
+            longest_blk = if cli.size_blocks {longest.longest_block} else {0},
             longest_inode = if cli.inode { longest.longest_inode } else {0},
             longest_dir = longest.number_of_entries,
             longest_user = longest.longest_owner,
