@@ -9,6 +9,7 @@ mod cat;
 mod chmod;
 mod chown;
 mod cp;
+mod du;
 mod ln;
 mod ls;
 mod mkdir;
@@ -44,6 +45,7 @@ fn main() {
         "ln" => ln::main(),
         "chown" => chown::main(),
         "chmod" => chmod::main(),
+        "du" => du::main(),
         _ => help(),
     }
 }
