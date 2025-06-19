@@ -292,10 +292,6 @@ fn ln(cli: &Cli, path: PathBuf) {
     }
 
     if cli.symbolic_link {
-        /*if cli.relative {
-            dbg!(&destination, &p);
-            dbg!(diff_paths(&p, &destination).unwrap());
-        };*/
         slink(p, destination);
     } else {
         link(cli, p, destination);

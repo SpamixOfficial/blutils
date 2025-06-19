@@ -1,19 +1,13 @@
 use core::fmt;
-use nix::sys::stat::stat;
 use std::{
-    env::args,
-    ffi::OsString,
-    fmt::Debug,
-    fs::Metadata,
-    os::unix::fs::MetadataExt,
-    path::{self, Path, PathBuf},
-    process::exit,
-    usize,
+    env::args, ffi::{CString, OsString}, fmt::Debug, fs::Metadata, os::unix::fs::MetadataExt, path::{self, Path, PathBuf}, process::exit, str::FromStr, usize
 };
 
-use crate::utils::{c_escape, log, ModeWrapper, PathExtras, PathType, PermissionsPlus};
+use libc::stat;
 
-use ansi_term::{Colour, Style};
+use crate::utils::{c_escape, libc_wrap, log, MetadataPlus, ModeWrapper, PathExtras, PathType, PermissionsPlus};
+
+use crate::ansi_colour::{Colour, Style};
 use chrono::{DateTime, Local, TimeZone};
 
 use clap::Parser;
@@ -893,6 +887,7 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize, usize)>>) {
 
             // Get the permission string (Example: -rw-r--r--, octal 644)
             let perms = metadata_entry.permissions().mode_struct();
+
             // Get entries in directory, or 1 if its a file
             let dir_entries = if entry.1.is_dir() {
                 WalkDir::new(&entry.1).max_depth(1).into_iter().count()
@@ -901,15 +896,15 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize, usize)>>) {
             };
             // Get owner and group
             let owner = if cli.list_no_owner {
-                OsString::from("")
+                String::from("")
             } else {
-                users::get_current_username().unwrap_or(OsString::from("unknown"))
+                metadata_entry.owner()
             };
 
             let group = if cli.no_group {
-                OsString::from("")
+                String::from("")
             } else {
-                users::get_current_groupname().unwrap_or(OsString::from("unknown"))
+                metadata_entry.group()
             };
 
             // Create timestamps
@@ -929,14 +924,18 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize, usize)>>) {
             let parent = entry.1.parent().unwrap_or(Path::new("./")).to_path_buf();
 
             let inode = if cli.inode {
-                match stat(&entry.1) {
-                    Ok(x) => x.st_ino,
-                    Err(e) => {
+                unsafe {
+                    let mut stat_struct: stat = std::mem::zeroed();
+                    let path = CString::from_str(entry.1.to_str().unwrap()).unwrap();
+                    let result = libc_wrap(stat(path.as_ptr(), &mut stat_struct));
+                    if let Err(e) = result {
                         log(
                             cli.verbose,
                             format!("Inode failed for {}: {}", &entry.1.display(), e.to_string()),
                         );
                         0
+                    } else {
+                        stat_struct.st_ino
                     }
                 }
             } else {
@@ -957,8 +956,8 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize, usize)>>) {
                 parent,
                 mode: perms,
                 number_of_entries: dir_entries,
-                owner: owner.to_str().unwrap().to_string(),
-                group: group.to_str().unwrap().to_string(),
+                owner: owner.clone(),
+                group: group,
                 size: metadata_entry.size() as usize / block_size as usize,
                 size_char,
                 timestamps: timestamp,
@@ -975,7 +974,7 @@ fn list_list(cli: &Cli, lines: Vec<Vec<(String, PathBuf, usize, usize)>>) {
                 // This is hilarious, but the author is just the owner. Why does this option even
                 // exist?
                 author: if cli.author {
-                    owner.to_str().unwrap().to_string() + " "
+                    owner + " "
                 } else {
                     String::from("")
                 },

@@ -20,7 +20,7 @@
 
 Please suggest more utilities you'd like to be included!
 
-## Compability chart
+## GNU Compability chart
 
 | Name  | Percent | Options Missing                           |
 | ----- | ------- | ----------------------------------------- |

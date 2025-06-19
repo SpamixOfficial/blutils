@@ -46,7 +46,7 @@ fn main() {
         ),
     ];
 
-    // in case the dir doesnt exist we got to create it!
+    // in case the dir doesn't exist we create it
     _ = create_dir("src/metadata");
     for (data, path) in metadata {
         let mut file = match File::create(path) {

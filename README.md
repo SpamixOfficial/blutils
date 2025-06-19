@@ -5,7 +5,7 @@ The name Blutils is a wordplay between the color "blue" and the word "utils".
 
 Blutils aims to improve the experience of your system with lightwheight, :sparkles:fast:sparkles: and good looking visuals.
 
-Except just being amazing, Blutils also strives to be compatible with existing GNU coreutils. This means that Blutils brings QOL-features while feeling somewhat familiar!
+Except just being amazing, Blutils also strives to be *mostly* compatible with existing GNU coreutils (see [a](#Compatibility)). This means that Blutils brings QOL-features while feeling somewhat familiar!
 
 NOTE: Blutils is compatible in almost every way, except SELinux and SMACK functionality.
 
@@ -51,6 +51,11 @@ cargo run -- chmod
 \*NOTE: All of these commands do what they are supposed to do. This can lead to **_destructive_** actions.\*
 
 **TREAT THESE COMMANDS AS YOU WOULD TREAT YOUR NORMAL COMMANDS!**
+
+# Compatibility  
+
+While we strive to be **mostly** compatible with GNU coreutils, a lot of the options are considered bloat or edge-case.
+Because of that some options are gone to make maintaining and developing the codebase easier, while also bringing the benefit of smaller binary sizes.
 
 # Conributing
 

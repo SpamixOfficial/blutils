@@ -18,7 +18,7 @@ These guidelines are in place to make sure that the next person reading your cod
     - "Fixed bug" (Doesn't properly describe what has been done)
     - "." (Empty message, very bad)
     - "John Doe caused this and now I blame him for it. Btw I fixed it" (Finger pointing which breaks guideline 1)
-- Always prioritize GNU Coreutils compability. If this is not possible please justify it properly.
+- While GNU compatibility is nice it shouldn't make code too complicated. Options deemed as bloat are totally okay to remove or just straight up ignore, but please justify your choices properly.
 - Commits in rust are preferred but any compiled language is allowed as long as it plays nicely with the rest of the project
     - If it changes the build procedure in any way you need state this in the commit, **CLEARLY**
     - And please, no Python or Javascript for commands.

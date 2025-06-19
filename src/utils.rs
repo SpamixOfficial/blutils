@@ -1,13 +1,17 @@
 use libc::{
-    getuid, S_IFIFO, S_IFSOCK, S_IRGRP, S_IROTH, S_IRUSR, S_ISVTX, S_IWGRP, S_IWOTH, S_IWUSR, S_IXGRP, S_IXOTH, S_IXUSR
+    getgrgid, getpwuid, getuid, S_IFIFO, S_IFMT, S_IFSOCK, S_IRGRP, S_IROTH, S_IRUSR, S_ISVTX,
+    S_IWGRP, S_IWOTH, S_IWUSR, S_IXGRP, S_IXOTH, S_IXUSR,
 };
 use std::{
     any::Any,
-    ffi::CString,
-    fmt::Display,
+    ffi::{c_char, CStr},
+    fmt::{Display, Pointer},
     fs::{Metadata, Permissions},
     io::{Error, Read, Result},
-    os::unix::fs::{MetadataExt, PermissionsExt},
+    os::{
+        linux::fs::MetadataExt as lmext,
+        unix::fs::{MetadataExt, PermissionsExt},
+    },
     path::Path,
     process::exit,
 };
@@ -32,6 +36,10 @@ pub fn is_sudo() -> bool {
             return true;
         };
     };
+}
+
+pub fn charp_to_string(charp: *mut c_char) -> String {
+    unsafe { String::from(CStr::from_ptr(charp).to_str().unwrap()) }
 }
 
 // Stolen from https://stackoverflow.com/a/42773525
@@ -89,7 +97,7 @@ pub trait PathExtras {
 }
 
 pub fn test_mode(m: Metadata, t: u32) -> bool {
-    return (m.permissions().mode() & t) != 0
+    return (m.permissions().mode() & S_IFMT) == t;
 }
 
 impl PathExtras for Path {
@@ -112,22 +120,26 @@ impl PathExtras for Path {
             return PathType::Symlink;
         }
         if self.metadata().is_ok()
-            && test_mode(self.metadata().unwrap(), S_IXUSR | S_IXGRP)
+            && (self.metadata().unwrap().permissions().mode() & (S_IXUSR | S_IXGRP)) != 0
         {
             return PathType::Executable;
         }
-        
+
         if self.metadata().is_ok() && test_mode(self.metadata().unwrap(), S_IFIFO) {
-            return PathType::FIFO
+            return PathType::FIFO;
         }
 
         if self.metadata().is_ok() && test_mode(self.metadata().unwrap(), S_IFSOCK) {
-            return PathType::Socket
+            return PathType::Socket;
         }
 
         // GNU has this, so I included it. Only seems to be necessary on solaris >2.5
+        /*
+           2025/06/19 - Continuing this project today, will most likely start removing stuff I deem unnecessary to shrink the binary size + make it easier to maintain
+                        This also means that this option will most likely be gone by version 0.1.2
+        */
         if self.metadata().is_ok() && test_mode(self.metadata().unwrap(), 0) {
-            return PathType::Door
+            return PathType::Door;
         }
 
         PathType::File
@@ -136,7 +148,13 @@ impl PathExtras for Path {
         let result = match self.ptype() {
             PathType::Symlink => "@",
             PathType::Directory => "/",
-            PathType::Executable => if !no_exe { "*" } else { " " },
+            PathType::Executable => {
+                if !no_exe {
+                    "*"
+                } else {
+                    " "
+                }
+            }
             PathType::Door => ">",
             PathType::FIFO => "|",
             PathType::Socket => "=",
@@ -157,6 +175,7 @@ impl PathExtras for Path {
     }
 }
 
+#[derive(Debug)]
 pub enum PathType {
     File,
     Directory,
@@ -172,41 +191,40 @@ pub trait MetadataPlus {
     fn group(&self) -> String;
 }
 
-/*impl MetadataPlus for Metadata {
+impl MetadataPlus for Metadata {
     fn group(&self) -> String {
         let group: String;
+        let gid = self.st_gid();
+
         unsafe {
-            dbg!(self.gid());
-            let group_entry_pointer = getgrgid(self.gid());
-            // Check so pointer is not null
-            if group_entry_pointer.is_null() {
+            let group_pointer = getgrgid(gid);
+            if group_pointer.is_null() {
                 group = String::from("unknown");
                 return group;
             };
-            let group_entry = group_entry_pointer.read();
-            dbg!(&group_entry);
-            let group_raw = CString::from_raw(group_entry.gr_name);
-            group = group_raw.to_str().unwrap_or("unknown").to_string();
+            // pointer to string conversion (beautiful, I know)
+            group = charp_to_string((*group_pointer).gr_name);
         };
         group
     }
+
     fn owner(&self) -> String {
         let owner: String;
+        let uid = self.st_uid();
+
         unsafe {
-            let user_entry_pointer = getpwuid(self.uid());
-            // Check so pointer is not null
-            if user_entry_pointer.is_null() {
+            let pw_pointer = getpwuid(uid);
+            if pw_pointer.is_null() {
                 owner = String::from("unknown");
                 return owner;
-            };
-            let user_entry = user_entry_pointer.read();
-            dbg!(&user_entry);
-            let owner_raw = CString::from_raw(user_entry.pw_name);
-            owner = owner_raw.to_str().unwrap_or("unknown").to_string();
+            }
+            // fancy oneliner
+            owner = charp_to_string((*pw_pointer).pw_name);
         };
+
         owner
     }
-}*/
+}
 
 pub trait PermissionsPlus {
     fn mode_struct(&self) -> ModeWrapper;

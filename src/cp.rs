@@ -467,7 +467,6 @@ fn recursive_cp(cli: &Cli, p: &PathBuf) {
     let mut destination = cli.destination.clone();
     if destination.is_dir() && destination.exists() {
         destination.push(p.file_stem().unwrap());
-        dbg!(&destination.exists());
     };
     _ = wrap(create_dir(&destination), PROGRAM, false);
     if cli.parents {
